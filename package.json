@@ -3,38 +3,38 @@
   "version": "1.0.0",
   "license": "MIT",
   "scripts": {
-    "start": "nx serve web --host=0.0.0.0",
-    "build": "nx run-many -t=build",
-    "build:web": "nx build web",
-    "test": "nx run-many -t=test",
-    "release": "node scripts/release-version.js",
-    "pub": "npm run build && node scripts/publish.js"
+    "start": "nx serve web --host=0.0.0.0",    // 启动开发服务器
+    "build": "nx run-many -t=build",           // 构建所有项目
+    "build:web": "nx build web",               // 仅构建 Web 应用
+    "test": "nx run-many -t=test",             // 运行所有测试
+    "release": "node scripts/release-version.js",  // 版本发布
+    "pub": "npm run build && node scripts/publish.js"  // 构建并发布包
   },
   "private": true,
   "dependencies": {
-    "@floating-ui/react": "^0.26.24",
-    "@plait-board/markdown-to-drawnix": "^0.0.6",
-    "@plait-board/mermaid-to-drawnix": "^0.0.7",
-    "@plait/common": "^0.84.0",
-    "@plait/core": "^0.84.0",
-    "@plait/draw": "^0.84.0",
-    "@plait/layouts": "^0.84.0",
-    "@plait/mind": "^0.84.0",
-    "@plait/text-plugins": "^0.84.0",
-    "ahooks": "^3.8.0",
-    "browser-fs-access": "^0.35.0",
-    "classnames": "^2.5.1",
-    "localforage": "^1.10.0",
-    "mobile-detect": "^1.4.5",
-    "open-color": "^1.9.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "rxjs": "~7.8.0",
-    "slate": "^0.116.0",
-    "slate-dom": "^0.116.0",
-    "slate-history": "^0.115.0",
-    "slate-react": "^0.116.0",
-    "tslib": "^2.3.0"
+    "@floating-ui/react": "^0.26.24",                      // 弹出层 UI 库
+    "@plait-board/markdown-to-drawnix": "^0.0.7",          // Markdown 转思维导图
+    "@plait-board/mermaid-to-drawnix": "^0.0.7",           // Mermaid 转流程图
+    "@plait/common": "^0.85.0",                            // Plait 通用工具
+    "@plait/core": "^0.85.0",                              // Plait 核心框架
+    "@plait/draw": "^0.85.0",                              // Plait 绘图功能
+    "@plait/layouts": "^0.85.0",                           // Plait 布局系统
+    "@plait/mind": "^0.85.0",                              // Plait 思维导图
+    "@plait/text-plugins": "^0.85.0",                      // Plait 文本插件
+    "ahooks": "^3.8.0",                                     // React Hooks 库
+    "browser-fs-access": "^0.35.0",                        // 浏览器文件访问
+    "classnames": "^2.5.1",                                // CSS 类名工具
+    "localforage": "^1.10.0",                              // 本地数据存储
+    "mobile-detect": "^1.4.5",                             // 移动设备检测
+    "open-color": "^1.9.1",                                // 开放颜色调色盘
+    "react": "18.3.1",                                     // React 框架
+    "react-dom": "18.3.1",                                 // React DOM 渲染
+    "rxjs": "~7.8.0",                                       // 响应式编程库
+    "slate": "^0.116.0",                                   // 富文本编辑器
+    "slate-dom": "^0.116.0",                               // Slate DOM 支持
+    "slate-history": "^0.115.0",                           // Slate 历史记录
+    "slate-react": "^0.116.0",                             // Slate React 组件
+    "tslib": "^2.3.0"                                      // TypeScript 运行时库
   },
   "devDependencies": {
     "@babel/core": "^7.14.5",

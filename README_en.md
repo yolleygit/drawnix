@@ -38,21 +38,21 @@
 
 [*中文*](https://github.com/plait-board/drawnix/blob/develop/README.md)
 
-## Features
+## Features 特性
 
-- 💯 Free and Open Source
-- ⚒️ Mind Maps and Flowcharts
-- 🖌 Freehand
-- 😀 Image Support
-- 🚀 Plugin-based Architecture - Extensible
-- 🖼️ 📃 Export to PNG, JPG, JSON(.drawnix)
-- 💾 Auto-save (Browser Storage)
-- ⚡ Edit Features: Undo, Redo, Copy, Paste, etc.
-- 🌌 Infinite Canvas: Zoom, Pan
-- 🎨 Theme Support
-- 📱 Mobile-friendly
-- 📈 Support mermaid syntax conversion to flowchart
-- ✨ Support markdown text conversion to mind map（New 🔥🔥🔥）
+- 💯 Free and Open Source <!-- 免费 + 开源 -->
+- ⚒️ Mind Maps and Flowcharts <!-- 思维导图、流程图 -->
+- 🖌 Freehand <!-- 画笔 -->
+- 😀 Image Support <!-- 插入图片 -->
+- 🚀 Plugin-based Architecture - Extensible <!-- 基于插件机制 -->
+- 🖼️ 📃 Export to PNG, JPG, JSON(.drawnix) <!-- 导出为 PNG, JPG, JSON(.drawnix) -->
+- 💾 Auto-save (Browser Storage) <!-- 自动保存（浏览器缓存） -->
+- ⚡ Edit Features: Undo, Redo, Copy, Paste, etc. <!-- 编辑特性：撤销、重做、复制、粘贴等 -->
+- 🌌 Infinite Canvas: Zoom, Pan <!-- 无限画布：缩放、滚动 -->
+- 🎨 Theme Support <!-- 主题模式 -->
+- 📱 Mobile-friendly <!-- 移动设备适配 -->
+- 📈 Support mermaid syntax conversion to flowchart <!-- 支持 mermaid 语法转流程图 -->
+- ✨ Support markdown text conversion to mind map（New 🔥🔥🔥） <!-- 支持 markdown 文本转思维导图（新支持） -->
 
 
 ## About the Name
@@ -72,18 +72,18 @@ Like a Phoenix, creativity must rise from the flames to be reborn, and ***Drawni
 
 *Drawnix* uses a *plugin architecture*, which is technically more complex than the previously mentioned *open-source* tools. However, this *plugin architecture* has its advantages: it supports multiple *UI frameworks* (*Angular*, *React*), integrates with different *rich text frameworks* (currently only supporting *Slate* framework), enables better business layer separation in development, allows development of various fine-grained reusable plugins, and can expand to more whiteboard application scenarios.
 
-## Repository Structure
+## Repository Structure 仓库结构
 
 ```
 drawnix/
 ├── apps/
 │   ├── web                   # drawnix.com
 │   │    └── index.html       # HTML
-├── dist/                     # Build artifacts
+├── dist/                     # Build artifacts 构建产物
 ├── packages/
-│   └── drawnix/              # Whiteboard application core
-│   └── react-board/          # Whiteboard react view layer
-│   └── react-text/           # Text rendering module
+│   └── drawnix/              # Whiteboard application core 白板应用核心
+│   └── react-board/          # Whiteboard react view layer 白板 React 视图层
+│   └── react-text/           # Text rendering module 文本渲染模块
 ├── package.json
 ├── ...
 └── README.md
@@ -91,25 +91,27 @@ drawnix/
 
 ```
 
-## Try It Out
+## Try It Out 应用
 
 *https://drawnix.com* is the minimal application of *drawnix*.
+<!-- https://drawnix.com 是 drawnix 的最小化应用。-->
 
 I will be iterating frequently on *drawnix.com* until the release of the *Dawn* version.
+<!-- 近期会高频迭代 drawnix.com，直到发布 Dawn（破晓）版本。 -->
 
 
-## Development
+## Development 开发
 
 ```
-npm install
+npm install  # 安装依赖
 
-npm run start
+npm run start  # 启动开发服务器
 ```
 
 ## Docker
 
 ```
-docker pull pubuzhixing/drawnix:latest
+docker pull pubuzhixing/drawnix:latest  # 拉取官方镜像
 ```
 
 ## Dependencies
