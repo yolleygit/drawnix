@@ -1,49 +1,49 @@
 {
-  "$schema": "./node_modules/nx/schemas/nx-schema.json",      // Nx 配置模式
-  "namedInputs": {                                            // 命名输入配置
-    "default": [                                              // 默认输入文件
-      "{projectRoot}/**/*",                                   // 项目根目录下所有文件
-      "sharedGlobals"                                         // 共享全局文件
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
     ],
-    "production": [                                           // 生产环境输入文件
-      "default",                                              // 包含默认文件
-      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",  // 排除测试文件
-      "!{projectRoot}/tsconfig.spec.json",                    // 排除测试 TS 配置
-      "!{projectRoot}/.eslintrc.json",                        // 排除 ESLint 配置
-      "!{projectRoot}/eslint.config.js",                      // 排除 ESLint JS 配置
-      "!{projectRoot}/jest.config.[jt]s",                     // 排除 Jest 配置
-      "!{projectRoot}/src/test-setup.[jt]s",                  // 排除测试设置文件
-      "!{projectRoot}/test-setup.[jt]s"                       // 排除测试设置文件
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.js",
+      "!{projectRoot}/jest.config.[jt]s",
+      "!{projectRoot}/src/test-setup.[jt]s",
+      "!{projectRoot}/test-setup.[jt]s"
     ],
-    "sharedGlobals": []                                       // 共享全局文件（空）
+    "sharedGlobals": []
   },
-  "plugins": [                                               // Nx 插件配置
+  "plugins": [
     {
-      "plugin": "@nx/vite/plugin",                             // Vite 插件
+      "plugin": "@nx/vite/plugin",
       "options": {
-        "buildTargetName": "build",                           // 构建目标名称
-        "testTargetName": "test",                             // 测试目标名称
-        "serveTargetName": "serve",                           // 服务目标名称
-        "previewTargetName": "preview",                       // 预览目标名称
-        "serveStaticTargetName": "serve-static"               // 静态服务目标名称
+        "buildTargetName": "build",
+        "testTargetName": "test",
+        "serveTargetName": "serve",
+        "previewTargetName": "preview",
+        "serveStaticTargetName": "serve-static"
       }
     },
     {
-      "plugin": "@nx/eslint/plugin",                          // ESLint 插件
+      "plugin": "@nx/eslint/plugin",
       "options": {
-        "targetName": "lint"                                  // 代码检查目标
+        "targetName": "lint"
       }
     },
     {
-      "plugin": "@nx/playwright/plugin",                     // Playwright E2E 插件
+      "plugin": "@nx/playwright/plugin",
       "options": {
-        "targetName": "e2e"                                   // E2E 测试目标
+        "targetName": "e2e"
       }
     },
     {
-      "plugin": "@nx/jest/plugin",                           // Jest 测试插件
+      "plugin": "@nx/jest/plugin",
       "options": {
-        "targetName": "test"                                  // 单元测试目标
+        "targetName": "test"
       }
     }
   ],

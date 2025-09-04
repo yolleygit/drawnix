@@ -1,24 +1,24 @@
 {
-  "compileOnSave": false,                                    // 保存时不自动编译
+  "compileOnSave": false,
   "compilerOptions": {
-    "rootDir": ".",                                           // 项目根目录
-    "sourceMap": true,                                       // 生成源码映射
-    "declaration": false,                                    // 不生成声明文件
-    "moduleResolution": "node",                              // Node.js 模块解析
-    "emitDecoratorMetadata": true,                           // 发出装饰器元数据
-    "experimentalDecorators": true,                          // 允许实验性装饰器
-    "importHelpers": true,                                   // 使用 tslib 助手函数
-    "target": "es2015",                                      // 编译目标版本
-    "module": "esnext",                                      // 模块系统
-    "lib": ["es2020", "dom"],                               // 库文件引用
-    "skipLibCheck": true,                                    // 跳过库文件检查
-    "skipDefaultLibCheck": true,                             // 跳过默认库检查
-    "baseUrl": ".",                                          // 基础 URL 路径
-    "paths": {                                               // 路径映射配置
-      "@drawnix/drawnix": ["packages/drawnix/src/index.ts"],           // 核心白板组件
-      "@plait-board/react-board": ["packages/react-board/src/index.ts"], // React 白板组件
-      "@plait-board/react-text": ["packages/react-text/src/index.ts"]   // React 文本组件
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@drawnix/drawnix": ["packages/drawnix/src/index.ts"],
+      "@plait-board/react-board": ["packages/react-board/src/index.ts"],
+      "@plait-board/react-text": ["packages/react-text/src/index.ts"]
     }
   },
-  "exclude": ["node_modules", "tmp"]                       // 排除的目录
+  "exclude": ["node_modules", "tmp"]
 }

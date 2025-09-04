@@ -43,9 +43,9 @@ export function App() {
   }, []);
   return (
     <Drawnix
-      value={value.children}       {/* 白板上的元素 */}
-      viewport={value.viewport}    {/* 视口信息 */}
-      theme={value.theme}         {/* 主题配置 */}
+      value={value.children}
+      viewport={value.viewport}
+      theme={value.theme}
       onChange={(value) => {
         // 当白板内容变化时，保存到 LocalForage 并更新状态
         localforage.setItem(MAIN_BOARD_CONTENT_KEY, value);
