@@ -46,7 +46,7 @@ interface SelectedImageData {
 }
 
 // 辅助函数：从 URL 获取图像的 base64 数据（智能压缩）
-const getImageBase64 = async (url: string, maxWidth: number = 1536, quality: number = 0.85): Promise<{ base64: string; mimeType: string }> => {
+const getImageBase64 = async (url: string, maxWidth = 1536, quality = 0.85): Promise<{ base64: string; mimeType: string }> => {
   // 如果已经是 data URL 格式，需要解析并可能压缩
   if (url.startsWith('data:')) {
     try {
@@ -82,7 +82,7 @@ const getImageBase64 = async (url: string, maxWidth: number = 1536, quality: num
 };
 
 // 图像智能压缩函数，保持更好的质量
-const compressImage = async (url: string, maxWidth: number = 1536, quality: number = 0.85): Promise<{ base64: string; mimeType: string }> => {
+const compressImage = async (url: string, maxWidth = 1536, quality = 0.85): Promise<{ base64: string; mimeType: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -463,8 +463,38 @@ export const AIGenerateDialog: React.FC = () => {
         prompt: task.prompt
       });
       
-      // 立即创建占位符并插入到画布
-      const placeholder = createAIPlaceholder(board, task.id);
+      // 获取原始选中图像的尺寸信息
+      let originalWidth: number | undefined;
+      let originalHeight: number | undefined;
+      
+      if (sourceImageIds.length > 0) {
+        // 从画布上找到对应的图像元素获取尺寸
+        const firstSourceElement = board.children.find((element: any) => 
+          element.id && sourceImageIds.includes(element.id) && element.type === 'image'
+        ) as any;
+        
+        if (firstSourceElement && firstSourceElement.points) {
+          originalWidth = firstSourceElement.points[1][0] - firstSourceElement.points[0][0];
+          originalHeight = firstSourceElement.points[1][1] - firstSourceElement.points[0][1];
+          console.log('AI生成对话框: 从选中元素获取到原始图像尺寸', {
+            elementId: firstSourceElement.id,
+            originalWidth,
+            originalHeight,
+            aspectRatio: (originalWidth / originalHeight).toFixed(2)
+          });
+        }
+      }
+      
+      // 立即创建占位符并插入到画布，传入原始图像的尺寸和提示词
+      const placeholder = createAIPlaceholder(
+        board, 
+        task.id, 
+        undefined, // targetPoint
+        originalWidth, 
+        originalHeight,
+        prompt.trim(), // 显示用户输入的提示词
+        0.1 // 初始进度 10%
+      );
       
       // 更新任务状态，记录占位符ID
       updateTaskStatus(task.id, 'pending', { placeholderId: (placeholder as any).id });

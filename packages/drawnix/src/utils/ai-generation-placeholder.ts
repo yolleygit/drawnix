@@ -28,20 +28,35 @@ export const PlaceholderRegistry = {
 
 /**
  * 创建AI生成占位符图片
- * 自动匹配选中图像的尺寸
+ * 自动匹配选中图像的尺寸，显示提示词和进度
  */
 export const createAIPlaceholder = (
   board: PlaitBoard,
   taskId: string,
   targetPoint?: Point,
   width?: number,
-  height?: number
+  height?: number,
+  prompt?: string,
+  progress?: number
 ): PlaceholderImage => {
-  // 如果没有指定尺寸，尝试从选中的图像获取尺寸
-  let placeholderWidth = width || 200;
-  let placeholderHeight = height || 200;
+  // 优先使用显式传入的尺寸参数
+  let placeholderWidth = 200; // 默认尺寸
+  let placeholderHeight = 200; // 默认尺寸
+  let sizeSource = '默认尺寸';
   
-  if (!width || !height) {
+  // 第一优先级：使用显式传入的尺寸参数
+  if (width && height && width > 0 && height > 0) {
+    placeholderWidth = width;
+    placeholderHeight = height;
+    sizeSource = '显式参数';
+    console.log('Placeholder: 使用显式传入的尺寸参数', {
+      width: placeholderWidth,
+      height: placeholderHeight,
+      aspectRatio: (placeholderWidth / placeholderHeight).toFixed(2)
+    });
+  }
+  // 第二优先级：从当前选中的图像元素获取尺寸
+  else {
     const selectedElements = getSelectedElements(board);
     const selectedImages = selectedElements.filter(el => 
       PlaitDrawElement.isImage && PlaitDrawElement.isImage(el)
@@ -53,32 +68,112 @@ export const createAIPlaceholder = (
       const imageWidth = lastImage.points[1][0] - lastImage.points[0][0];
       const imageHeight = lastImage.points[1][1] - lastImage.points[0][1];
       
-      placeholderWidth = imageWidth;
-      placeholderHeight = imageHeight;
-      
-      console.log('Placeholder: 使用选中图像尺寸', {
-        originalWidth: imageWidth,
-        originalHeight: imageHeight,
-        aspectRatio: (imageWidth / imageHeight).toFixed(2)
-      });
+      if (imageWidth > 0 && imageHeight > 0) {
+        placeholderWidth = imageWidth;
+        placeholderHeight = imageHeight;
+        sizeSource = '选中图像元素';
+        console.log('Placeholder: 从选中图像元素获取尺寸', {
+          elementId: lastImage.id,
+          originalWidth: imageWidth,
+          originalHeight: imageHeight,
+          aspectRatio: (imageWidth / imageHeight).toFixed(2)
+        });
+      }
     }
   }
-  // 创建浅蓝色占位符图片 SVG，使用动态尺寸
+  
+  console.log('Placeholder: 最终尺寸确定', {
+    width: placeholderWidth,
+    height: placeholderHeight,
+    sizeSource,
+    aspectRatio: (placeholderWidth / placeholderHeight).toFixed(2)
+  });
+  // 准备显示的文本
+  const displayPrompt = prompt ? (
+    prompt.length > 50 ? prompt.substring(0, 47) + '...' : prompt
+  ) : 'AI 图像生成';
+  
+  const progressPercent = Math.round((progress || 0) * 100);
+  const progressWidth = Math.max(100, placeholderWidth * 0.6); // 进度条宽度
+  const progressFill = progressWidth * (progress || 0); // 进度填充宽度
+  
+  // 创建现代化的AI占位符SVG，显示提示词和进度
   const placeholderSvg = `
     <svg width="${placeholderWidth}" height="${placeholderHeight}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <pattern id="dots" patternUnits="userSpaceOnUse" width="20" height="20">
-          <circle cx="10" cy="10" r="2" fill="#93c5fd" opacity="0.3"/>
-        </pattern>
+        <!-- 渐变背景 -->
+        <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#f0f9ff;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#e0f2fe;stop-opacity:1" />
+        </linearGradient>
+        
+        <!-- 进度条渐变 -->
+        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+        </linearGradient>
+        
+        <!-- 动画效果 -->
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge> 
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/> 
+          </feMerge>
+        </filter>
       </defs>
-      <rect width="100%" height="100%" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="2" stroke-dasharray="8,4" rx="8"/>
-      <rect width="100%" height="100%" fill="url(#dots)"/>
-      <g transform="translate(${placeholderWidth/2 - 40}, ${placeholderHeight/2 - 20})">
-        <circle cx="40" cy="20" r="15" fill="#0ea5e9" opacity="0.2">
-          <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" repeatCount="indefinite"/>
-        </circle>
-        <text x="40" y="26" text-anchor="middle" fill="#0ea5e9" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI</text>
-        <text x="40" y="45" text-anchor="middle" fill="#0369a1" font-family="Arial, sans-serif" font-size="8">生成中...</text>
+      
+      <!-- 背景边框 -->
+      <rect width="100%" height="100%" fill="url(#bgGradient)" stroke="#0ea5e9" stroke-width="2" 
+            stroke-dasharray="10,5" rx="12" ry="12">
+        <animate attributeName="stroke-dashoffset" values="0;15" dur="2s" repeatCount="indefinite"/>
+      </rect>
+      
+      <!-- 中心内容区域 -->
+      <g transform="translate(${placeholderWidth/2}, ${placeholderHeight/2})">
+        
+        <!-- AI图标 -->
+        <g transform="translate(0, ${-placeholderHeight/4})">
+          <circle cx="0" cy="0" r="20" fill="#3b82f6" opacity="0.2" filter="url(#glow)">
+            <animate attributeName="opacity" values="0.2;0.4;0.2" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="20;22;20" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <text x="0" y="6" text-anchor="middle" fill="#1e40af" font-family="Arial, sans-serif" 
+                font-size="16" font-weight="bold">AI</text>
+        </g>
+        
+        <!-- 提示词显示 -->
+        <text x="0" y="${-placeholderHeight/8}" text-anchor="middle" fill="#374151" 
+              font-family="Arial, sans-serif" font-size="${Math.min(14, placeholderWidth/20)}" 
+              font-weight="500">${displayPrompt}</text>
+        
+        <!-- 进度条背景 -->
+        <rect x="${-progressWidth/2}" y="${placeholderHeight/8}" width="${progressWidth}" height="8" 
+              fill="#e5e7eb" rx="4" ry="4"/>
+        
+        <!-- 进度条填充 -->
+        <rect x="${-progressWidth/2}" y="${placeholderHeight/8}" width="${progressFill}" height="8" 
+              fill="url(#progressGradient)" rx="4" ry="4">
+          <animate attributeName="opacity" values="0.8;1;0.8" dur="1.5s" repeatCount="indefinite"/>
+        </rect>
+        
+        <!-- 进度百分比 -->
+        <text x="0" y="${placeholderHeight/8 + 25}" text-anchor="middle" fill="#6b7280" 
+              font-family="Arial, sans-serif" font-size="12">${progressPercent}%</text>
+              
+        <!-- 加载动画点 -->
+        <g transform="translate(0, ${placeholderHeight/4})">
+          <circle cx="-12" cy="0" r="2" fill="#3b82f6">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" begin="0s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="0" cy="0" r="2" fill="#3b82f6">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" begin="0.5s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="12" cy="0" r="2" fill="#3b82f6">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" begin="1s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+        
       </g>
     </svg>
   `;
@@ -199,13 +294,28 @@ export const replacePlaceholderWithImage = (
   taskId: string,
   generatedImageUrl: string
 ): string | null => {
-  console.log('Placeholder: 查找占位符', taskId);
+  console.log('Placeholder: 开始替换占位符', {
+    taskId, 
+    generatedImageUrl: generatedImageUrl ? '已提供' : '未提供',
+    boardChildrenCount: board.children.length
+  });
+  
   const placeholder = findPlaceholderByTaskId(board, taskId);
   if (!placeholder) {
-    console.log('Placeholder: 未找到占位符', taskId);
+    console.error('Placeholder: 未找到占位符', {
+      taskId,
+      boardChildrenCount: board.children.length,
+      registrySize: placeholderRegistry.size,
+      allElementIds: board.children.map(el => ({ id: el.id, type: el.type }))
+    });
     return null;
   }
-  console.log('Placeholder: 找到占位符，开始替换', placeholder);
+  
+  console.log('Placeholder: 找到占位符，开始替换', {
+    placeholderId: placeholder.id,
+    placeholderType: placeholder.type,
+    placeholderPoints: placeholder.points
+  });
 
   // 获取占位符的位置和尺寸
   const position = placeholder.points[0];
@@ -232,9 +342,20 @@ export const replacePlaceholderWithImage = (
     console.log('Placeholder: 新图像ID:', newImageId);
 
     // 使用正确的Plait API安全删除占位符
-    console.log('Placeholder: 开始删除占位符');
-    CoreTransforms.removeElements(board, [placeholder]);
-    console.log('Placeholder: 占位符删除成功');
+    console.log('Placeholder: 开始删除占位符', {
+      placeholderId: placeholder.id,
+      boardChildrenBefore: board.children.length
+    });
+    
+    try {
+      CoreTransforms.removeElements(board, [placeholder]);
+      console.log('Placeholder: 占位符删除成功', {
+        boardChildrenAfter: board.children.length
+      });
+    } catch (removeError) {
+      console.error('Placeholder: 占位符删除失败', removeError);
+      // 继续执行清理操作
+    }
     
     // 清理注册表
     if (placeholder.id) {
@@ -428,6 +549,80 @@ export const createSmartArrowConnection = (
   });
   
   console.log('箭头连接: 完成所有绑定连线创建');
+};
+
+/**
+ * 更新占位符的进度显示
+ */
+export const updatePlaceholderProgress = (
+  board: PlaitBoard,
+  taskId: string,
+  progress: number,
+  stage?: string
+): boolean => {
+  console.log('Placeholder: 更新进度', { taskId, progress, stage });
+  
+  const placeholder = findPlaceholderByTaskId(board, taskId);
+  if (!placeholder) {
+    console.log('Placeholder: 未找到对应的占位符', taskId);
+    return false;
+  }
+
+  // 获取占位符尺寸
+  const width = placeholder.points[1][0] - placeholder.points[0][0];
+  const height = placeholder.points[1][1] - placeholder.points[0][1];
+  const position = placeholder.points[0];
+  
+  // 获取原始提示词（从 URL 中解析或使用默认值）
+  let originalPrompt = 'AI 图像生成';
+  if (placeholder.url && placeholder.url.includes('displayPrompt')) {
+    // 尝试从 SVG 中解析提示词（简化版）
+    const match = placeholder.url.match(/font-weight="500">([^<]+)</);
+    if (match && match[1] && match[1] !== 'AI 图像生成') {
+      originalPrompt = match[1];
+    }
+  }
+  
+  try {
+    // 先删除旧的占位符，再创建新的，避免重复
+    console.log('Placeholder: 开始更新进度 - 删除旧占位符');
+    CoreTransforms.removeElements(board, [placeholder]);
+    
+    // 清理注册表
+    if (placeholder.id) {
+      PlaceholderRegistry.unregister(placeholder.id);
+    }
+    
+    // 创建新的占位符图像，传入更新的进度
+    console.log('Placeholder: 创建新占位符，进度:', Math.round(progress * 100) + '%');
+    const newPlaceholder = createAIPlaceholder(
+      board,
+      taskId,
+      position,
+      width,
+      height,
+      originalPrompt,
+      Math.max(0, Math.min(1, progress)) // 确保进度在 0-1 之间
+    );
+    
+    // 注册新占位符
+    if (newPlaceholder.id) {
+      PlaceholderRegistry.register(newPlaceholder.id, taskId);
+    }
+    
+    console.log('Placeholder: 进度更新成功', {
+      taskId,
+      oldId: placeholder.id,
+      newId: newPlaceholder.id,
+      progress: Math.round(progress * 100) + '%'
+    });
+    
+    return true;
+    
+  } catch (error) {
+    console.error('Placeholder: 更新进度失败', error);
+    return false;
+  }
 };
 
 /**

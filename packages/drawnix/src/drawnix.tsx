@@ -82,6 +82,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       openCleanConfirm: false,
       openSettings: false,
       openAIGenerate: false,
+      isTemporaryHandMode: false,
     };
   });
 

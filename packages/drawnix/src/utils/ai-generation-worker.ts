@@ -12,7 +12,7 @@
 
 import { PlaitBoard } from '@plait/core';
 import { AIGenerationTask } from '../hooks/use-ai-generation-tasks';
-import { replacePlaceholderWithImage, createSmartArrowConnection } from './ai-generation-placeholder';
+import { replacePlaceholderWithImage, createSmartArrowConnection, updatePlaceholderProgress } from './ai-generation-placeholder';
 
 interface SettingsData {
   geminiApiKey: string;
@@ -82,7 +82,12 @@ export class AIGenerationWorker {
     try {
       // 更新状态为生成中
       console.log('Worker: 更新状态为生成中', task.id);
-      onStatusUpdate(task.id, 'generating');
+      onStatusUpdate(task.id, 'generating', { progress: 0.2, progressStage: '初始化请求...' });
+      
+      // 模拟进度更新
+      if (this.board) {
+        updatePlaceholderProgress(this.board, task.id, 0.2, '初始化请求...');
+      }
 
       // 获取API配置
       console.log('Worker: 获取API配置');
@@ -91,7 +96,22 @@ export class AIGenerationWorker {
         throw new Error('请先配置 Gemini API Key');
       }
       console.log('Worker: API Key已配置，开始调用生成API');
+      
+      // 更新进度到 40%
+      onStatusUpdate(task.id, 'generating', { progress: 0.4, progressStage: '连接API服务器...' });
+      if (this.board) {
+        updatePlaceholderProgress(this.board, task.id, 0.4, '连接API服务器...');
+      }
+      
+      // 添加一个小延时，让用户看到进度变化
+      await new Promise(resolve => setTimeout(resolve, 500));
 
+      // 更新进度到 60%
+      onStatusUpdate(task.id, 'generating', { progress: 0.6, progressStage: '发送生成请求...' });
+      if (this.board) {
+        updatePlaceholderProgress(this.board, task.id, 0.6, '发送生成请求...');
+      }
+      
       // 调用生成API
       const generatedImageUrl = await this.generateImageWithGemini(
         task.prompt,
@@ -101,51 +121,82 @@ export class AIGenerationWorker {
         task.selectedImages
       );
       
+      // 更新进度到 90%
+      onStatusUpdate(task.id, 'generating', { progress: 0.9, progressStage: '处理生成的图像...' });
+      if (this.board) {
+        updatePlaceholderProgress(this.board, task.id, 0.9, '处理生成的图像...');
+      }
+      
       console.log('Worker: 图像生成完成', generatedImageUrl ? '成功' : '失败');
 
-      // 更新任务状态
-      onStatusUpdate(task.id, 'completed', { generatedImageUrl });
+      // 更新任务状态到完成
+      onStatusUpdate(task.id, 'completed', { 
+        generatedImageUrl, 
+        progress: 1.0, 
+        progressStage: '生成完成!' 
+      });
 
       // 如果有画布引用，自动替换占位符
-      console.log('Worker: 开始替换占位符', { boardExists: !!this.board, placeholderId: task.placeholderId });
-      if (this.board) {
-        const newImageId = replacePlaceholderWithImage(
-          this.board,
-          task.id,
-          generatedImageUrl
-        );
-        console.log('Worker: 占位符替换结果', { success: !!newImageId, newImageId });
-
-        if (newImageId && task.sourceImageIds && task.sourceImageIds.length > 0) {
-          console.log('Worker: 开始创建箭头连接', {
-            sourceImageIds: task.sourceImageIds,
-            targetImageId: newImageId
-          });
+      console.log('Worker: 开始替换占位符', { 
+        boardExists: !!this.board, 
+        taskId: task.id,
+        generatedImageUrl: generatedImageUrl ? '已生成' : '未生成',
+        boardChildrenCount: this.board?.children.length
+      });
+      
+      if (this.board && generatedImageUrl) {
+        try {
+          // 等待短暂时间确保最后的进度更新完成
+          await new Promise(resolve => setTimeout(resolve, 100));
           
-          // 为了确保新图像已经被正确渲染，我们稍微延迟一下
-          setTimeout(() => {
-            console.log('Worker: 延迟后开始创建箭头连接');
-            try {
-              // 创建智能箭头连接
-              createSmartArrowConnection(
-                this.board,
-                task.sourceImageIds,
-                newImageId
-              );
-              console.log('Worker: 箭头连接创建完成');
-            } catch (error) {
-              console.error('Worker: 箭头连接创建失败', error);
-            }
-          }, 100);
-        } else {
-          console.log('Worker: 跳过箭头连接创建', {
-            hasNewImageId: !!newImageId,
-            hasSourceImageIds: !!(task.sourceImageIds && task.sourceImageIds.length > 0),
-            sourceImageIds: task.sourceImageIds
-          });
+          console.log('Worker: 即将替换占位符，停止进度更新');
+          const newImageId = replacePlaceholderWithImage(
+            this.board,
+            task.id,
+            generatedImageUrl
+          );
+          console.log('Worker: 占位符替换结果', { success: !!newImageId, newImageId });
+          
+          if (!newImageId) {
+            console.error('Worker: 占位符替换失败 - 未返回新图像ID');
+            return; // 早期返回，避免后续代码执行
+          }
+          
+          // 创建箭头连接
+          if (newImageId && task.sourceImageIds && task.sourceImageIds.length > 0) {
+            console.log('Worker: 开始创建箭头连接', {
+              sourceImageIds: task.sourceImageIds,
+              targetImageId: newImageId
+            });
+            
+            // 为了确保新图像已经被正确渲染，我们稍微延迟一下
+            setTimeout(() => {
+              console.log('Worker: 延迟后开始创建箭头连接');
+              try {
+                // 创建智能箭头连接
+                createSmartArrowConnection(
+                  this.board!,
+                  task.sourceImageIds!,
+                  newImageId
+                );
+                console.log('Worker: 箭头连接创建完成');
+              } catch (error) {
+                console.error('Worker: 箭头连接创建失败', error);
+              }
+            }, 100);
+          } else {
+            console.log('Worker: 跳过箭头连接创建', {
+              hasNewImageId: !!newImageId,
+              hasSourceImageIds: !!(task.sourceImageIds && task.sourceImageIds.length > 0),
+              sourceImageIds: task.sourceImageIds
+            });
+          }
+          
+        } catch (error) {
+          console.error('Worker: 占位符替换过程中发生异常:', error);
         }
       } else {
-        console.warn('Worker: 没有画布引用，无法替换占位符');
+        console.warn('Worker: 没有画布引用或未生成图像，无法替换占位符');
       }
 
     } catch (error) {

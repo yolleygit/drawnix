@@ -28,6 +28,9 @@ export interface AIGenerationTask {
   error?: string;
   createdAt: number;
   completedAt?: number;
+  // 新增进度相关字段
+  progress?: number; // 0-1 之间的进度值
+  progressStage?: string; // 进度阶段描述
 }
 
 export interface PlaceholderImage extends PlaitElement {
@@ -65,7 +68,7 @@ export const useAIGenerationTasks = () => {
   const updateTaskStatus = useCallback((
     taskId: string,
     status: AIGenerationTask['status'],
-    updates: Partial<Pick<AIGenerationTask, 'generatedImageUrl' | 'error' | 'placeholderId'>> = {}
+    updates: Partial<Pick<AIGenerationTask, 'generatedImageUrl' | 'error' | 'placeholderId' | 'progress' | 'progressStage'>> = {}
   ) => {
     console.log('Hook: 更新任务状态', { taskId, status, updates });
     setTasks(prev => prev.map(task => 

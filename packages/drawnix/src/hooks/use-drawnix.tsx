@@ -43,6 +43,8 @@ export type DrawnixState = {
   linkState?: LinkState | null;
   openSettings: boolean;
   openAIGenerate: boolean;
+  // 临时手型模式标志
+  isTemporaryHandMode?: boolean;
 };
 
 export const DrawnixContext = createContext<{
