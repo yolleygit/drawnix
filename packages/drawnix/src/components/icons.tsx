@@ -553,3 +553,24 @@ export const StraightLineIcon = createIcon(
     </g>
   </svg>
 );
+
+export const SettingsIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <g fill="currentColor">
+      <path d="M8 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm0-1.2a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/>
+      <path d="M14 8.77V7.23l-1.14-.44c-.1-.32-.24-.61-.4-.88l.54-1.07-1.08-1.08L10.85 4.3c-.27-.16-.56-.3-.88-.4L9.53 2.77H6.47l-.44 1.14c-.32.1-.61.24-.88.4l-1.07-.54L3 4.85l.54 1.07c-.16.27-.3.56-.4.88L2 7.23v2.54l1.14.44c.1.32.24.61.4.88l-.54 1.07L4.08 13.2l1.07-.54c.27.16.56.3.88.4l.44 1.14h2.06l.44-1.14c.32-.1.61-.24.88-.4l1.07.54L12 11.12l-.54-1.07c.16-.27.3-.56.4-.88L14 8.77zm-6 2.73a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>
+    </g>
+  </svg>
+);
+
+export const AIGenerateIcon = createIcon(
+  <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <g fill="currentColor">
+      <path d="M8 1.5l1.5 3 3.5.5-2.5 2.5.5 3.5L8 9.5l-3 1.5.5-3.5L3 5l3.5-.5L8 1.5z"/>
+      <circle cx="3" cy="3" r="1"/>
+      <circle cx="13" cy="3" r="1"/>
+      <circle cx="3" cy="13" r="1"/>
+      <circle cx="13" cy="13" r="1"/>
+    </g>
+  </svg>
+);

@@ -9,6 +9,7 @@ const zhTranslations: Translations = {
   'toolbar.arrow': '箭头 — A',
   'toolbar.shape': '形状',
   'toolbar.image': '图片 — Cmd+U',
+  'toolbar.aiGenerate': 'AI 生图',
   'toolbar.extraTools': '更多工具',
 
   'toolbar.pen': '画笔 — P',
@@ -79,6 +80,7 @@ const zhTranslations: Translations = {
   'menu.exportImage.png': 'PNG',
   'menu.exportImage.jpg': 'JPG',
   'menu.cleanBoard': '清除画布',
+  'menu.settings': '设置',
   'menu.github': 'GitHub',
 
   // Dialog translations
@@ -161,6 +163,22 @@ const zhTranslations: Translations = {
   ### Hello world 👋 🌍 ✨ 💻
   
   #### 哇 是个程序员 🤯 ⌨️ 💡 👩 💻`,
+
+  // Settings dialog
+  'settings.title': '设置',
+  'settings.apiConfig': 'API 配置',
+  'settings.displayTemplate': '显示模板',
+  'settings.geminiApiKey': 'Gemini API Key',
+  'settings.apiKeyPlaceholder': '输入您的 Gemini API 密钥',
+  'settings.apiKeyHelp': 'API Key将安全储存在地端浏览器中',
+  'settings.cancel': '取消',
+  'settings.save': '保存',
+  
+  // AI Generate
+  'aiGenerate.title': 'AI 生图',
+  'aiGenerate.prompt': '描述想要生成的图片...',
+  'aiGenerate.generate': '生成图片',
+  'aiGenerate.cancel': '取消',
 };
 
 export default zhTranslations;

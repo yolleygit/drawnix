@@ -1,8 +1,9 @@
-import { getSelectedElements, PlaitBoard } from '@plait/core';
+import { getSelectedElements, PlaitBoard, Point } from '@plait/core';
 import { base64ToBlob, boardToImage, download } from './common';
 import { fileOpen } from '../data/filesystem';
 import { IMAGE_MIME_TYPES } from '../constants';
-import { insertImage } from '../data/image';
+import { insertImage, loadHTMLImageElement, buildImage } from '../data/image';
+import { DrawTransforms } from '@plait/draw';
 
 export const saveAsImage = (board: PlaitBoard, isTransparent: boolean) => {
   const selectedElements = getSelectedElements(board);
@@ -27,4 +28,16 @@ export const addImage = async (board: PlaitBoard) => {
     ) as (keyof typeof IMAGE_MIME_TYPES)[],
   });
   insertImage(board, imageFile);
+};
+
+export const drawImageWithResize = async (
+  board: PlaitBoard, 
+  image: HTMLImageElement, 
+  x?: number, 
+  y?: number,
+  maxWidth = 400
+) => {
+  const imageItem = buildImage(image, image.src, maxWidth);
+  const point: Point | undefined = x !== undefined && y !== undefined ? [x, y] : undefined;
+  DrawTransforms.insertImage(board, imageItem, point);
 };

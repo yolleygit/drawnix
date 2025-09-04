@@ -11,6 +11,7 @@ const arTranslations: Translations = {
     "toolbar.arrow": "سهم — A",
     "toolbar.shape": "أشكال",
     "toolbar.image": "صورة — Cmd+U",
+    "toolbar.aiGenerate": "توليد بالذكاء الاصطناعي",
     "toolbar.extraTools": "أدوات إضافية",
 
     "toolbar.arrow.straight": "سهم مستقيم",
@@ -80,6 +81,7 @@ const arTranslations: Translations = {
     "menu.exportImage.jpg": "JPG",
     "menu.cleanBoard": "مسح اللوحة",
     "menu.github": "غيت هب",
+    "menu.settings": "الإعدادات",
 
     // Dialog translations
     "dialog.mermaid.title": "من Mermaid إلى Drawnix",
@@ -161,7 +163,23 @@ const arTranslations: Translations = {
 
     // Mind map elements text
     "mind.centralText": "الموضوع المركزي",
-    "mind.abstractNodeText": "ملخص"
+    "mind.abstractNodeText": "ملخص",
+
+    // Settings translations
+    'settings.title': 'الإعدادات',
+    'settings.apiConfig': 'إعداد API',
+    'settings.displayTemplate': 'عرض النموذج',
+    'settings.geminiApiKey': 'مفتاح Gemini API',
+    'settings.apiKeyPlaceholder': 'أدخل مفتاح Gemini API الخاص بك',
+    'settings.apiKeyHelp': 'سيتم حفظ مفتاح API بأمان في المتصفح الخاص بك',
+    'settings.cancel': 'إلغاء',
+    'settings.save': 'حفظ',
+
+    // AI Generate translations  
+    'aiGenerate.title': 'توليد بالذكاء الاصطناعي',
+    'aiGenerate.prompt': 'صف الصورة التي تريد إنتاجها...',
+    'aiGenerate.generate': 'إنتاج صورة',
+    'aiGenerate.cancel': 'إلغاء'
 };
 
 export default arTranslations;

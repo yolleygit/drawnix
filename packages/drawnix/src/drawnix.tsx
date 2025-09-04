@@ -35,6 +35,8 @@ import {
 import { ClosePencilToolbar } from './components/toolbar/pencil-mode-toolbar';
 import { TTDDialog } from './components/ttd-dialog/ttd-dialog';
 import { CleanConfirm } from './components/clean-confirm/clean-confirm';
+import { SettingsDialog } from './components/settings-dialog/settings-dialog';
+import { AIGenerateDialog } from './components/ai-generate-dialog/ai-generate-dialog';
 import { buildTextLinkPlugin } from './plugins/with-text-link';
 import { LinkPopup } from './components/popup/link-popup/link-popup';
 import { useI18n, I18nProvider } from './i18n';
@@ -78,6 +80,8 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       isPencilMode: false,
       openDialogType: null,
       openCleanConfirm: false,
+      openSettings: false,
+      openAIGenerate: false,
     };
   });
 
@@ -146,6 +150,8 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <ClosePencilToolbar></ClosePencilToolbar>
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
+            <SettingsDialog></SettingsDialog>
+            <AIGenerateDialog></AIGenerateDialog>
           </Wrapper>
         </div>
       </DrawnixContext.Provider>

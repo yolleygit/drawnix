@@ -4,6 +4,7 @@ import {
   OpenFileIcon,
   SaveFileIcon,
   TrashIcon,
+  SettingsIcon,
 } from '../../icons';
 import { useBoard, useListRender } from '@plait-board/react-board';
 import {
@@ -157,3 +158,24 @@ export const Socials = () => {
   );
 };
 Socials.displayName = 'Socials';
+
+export const SettingsMenu = () => {
+  const { appState, setAppState } = useDrawnix();
+  const { t } = useI18n();
+  return (
+    <MenuItem
+      icon={SettingsIcon}
+      data-testid="settings-button"
+      onSelect={() => {
+        setAppState({
+          ...appState,
+          openSettings: true,
+        });
+      }}
+      aria-label={t('menu.settings')}
+    >
+      {t('menu.settings')}
+    </MenuItem>
+  );
+};
+SettingsMenu.displayName = 'SettingsMenu';

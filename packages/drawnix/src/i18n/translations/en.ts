@@ -9,6 +9,7 @@ const enTranslations: Translations = {
   'toolbar.arrow': 'Arrow — A',
   'toolbar.shape': 'Shape',
   'toolbar.image': 'Image — Cmd+U',
+  'toolbar.aiGenerate': 'AI Generate',
   'toolbar.extraTools': 'Extra Tools',
 
   'toolbar.pen': 'Pen — P',
@@ -78,6 +79,7 @@ const enTranslations: Translations = {
   'menu.exportImage.png': 'PNG',
   'menu.exportImage.jpg': 'JPG',
   'menu.cleanBoard': 'Clear Board',
+  'menu.settings': 'Settings',
   'menu.github': 'GitHub',
 
   // Dialog translations
@@ -160,6 +162,22 @@ const enTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Central Topic',
   'mind.abstractNodeText': 'Summary',
+  
+  // Settings dialog
+  'settings.title': 'Settings',
+  'settings.apiConfig': 'API Configuration',
+  'settings.displayTemplate': 'Display Template',
+  'settings.geminiApiKey': 'Gemini API Key',
+  'settings.apiKeyPlaceholder': 'Enter your Gemini API key',
+  'settings.apiKeyHelp': 'API Key will be securely stored in your browser',
+  'settings.cancel': 'Cancel',
+  'settings.save': 'Save',
+  
+  // AI Generate
+  'aiGenerate.title': 'AI Generate',
+  'aiGenerate.prompt': 'Describe the image you want to generate...',
+  'aiGenerate.generate': 'Generate Image',
+  'aiGenerate.cancel': 'Cancel',
   
 };
 

@@ -13,6 +13,7 @@ export interface Translations {
   'toolbar.arrow': string;
   'toolbar.shape': string;
   'toolbar.image': string;
+  'toolbar.aiGenerate': string;
   'toolbar.extraTools': string;
 
   'toolbar.pen': string;
@@ -84,6 +85,7 @@ export interface Translations {
   'menu.exportImage.png': string;
   'menu.exportImage.jpg': string;
   'menu.cleanBoard': string;
+  'menu.settings': string;
   'menu.github': string;
 
   // Dialog translations
@@ -148,6 +150,22 @@ export interface Translations {
   // Mind map elements text
   'mind.centralText': string;
   'mind.abstractNodeText': string;
+
+  // Settings dialog
+  'settings.title': string;
+  'settings.apiConfig': string;
+  'settings.displayTemplate': string;
+  'settings.geminiApiKey': string;
+  'settings.apiKeyPlaceholder': string;
+  'settings.apiKeyHelp': string;
+  'settings.cancel': string;
+  'settings.save': string;
+  
+  // AI Generate
+  'aiGenerate.title': string;
+  'aiGenerate.prompt': string;
+  'aiGenerate.generate': string;
+  'aiGenerate.cancel': string;
 }
 
 // I18n context interface

@@ -9,6 +9,7 @@ const ruTranslations: Translations = {
   'toolbar.arrow': 'Стрелка — A',
   'toolbar.shape': 'Фигуры',
   'toolbar.image': 'Изображение — Cmd+U',
+  'toolbar.aiGenerate': 'ИИ генерация',
   'toolbar.extraTools': 'Дополнительно',
 
   'toolbar.pen': 'Карандаш — P',
@@ -80,6 +81,7 @@ const ruTranslations: Translations = {
   'menu.exportImage.jpg': 'JPG',
   'menu.cleanBoard': 'Очистить доску',
   'menu.github': 'GitHub',
+  'menu.settings': 'Настройки',
   
   // Dialog translations
   'dialog.mermaid.title': 'Mermaid в Drawnix',
@@ -166,6 +168,22 @@ const ruTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Центральная тема',
   'mind.abstractNodeText': 'Резюме',
+  
+  // Settings translations
+  'settings.title': 'Настройки',
+  'settings.apiConfig': 'Настройка API',
+  'settings.displayTemplate': 'Отображение шаблона',
+  'settings.geminiApiKey': 'Ключ Gemini API',
+  'settings.apiKeyPlaceholder': 'Введите ваш ключ Gemini API',
+  'settings.apiKeyHelp': 'API ключ будет безопасно сохранен в вашем браузере',
+  'settings.cancel': 'Отмена',
+  'settings.save': 'Сохранить',
+  
+  // AI Generate translations  
+  'aiGenerate.title': 'ИИ генерация',
+  'aiGenerate.prompt': 'Опишите изображение, которое хотите сгенерировать...',
+  'aiGenerate.generate': 'Сгенерировать изображение',
+  'aiGenerate.cancel': 'Отмена'
 };
 
 export default ruTranslations;

@@ -41,6 +41,8 @@ export type DrawnixState = {
   openDialogType: DialogType | null;
   openCleanConfirm: boolean;
   linkState?: LinkState | null;
+  openSettings: boolean;
+  openAIGenerate: boolean;
 };
 
 export const DrawnixContext = createContext<{

@@ -13,6 +13,7 @@ import {
   FeltTipPenIcon,
   ImageIcon,
   ExtraToolsIcon,
+  AIGenerateIcon,
 } from '../icons';
 import { useBoard } from '@plait-board/react-board';
 import {
@@ -51,11 +52,11 @@ export enum PopupKey {
 }
 
 type AppToolButtonProps = {
-  titleKey?: keyof typeof import('../../i18n').Translations;
+  titleKey?: keyof import('../../i18n/types').Translations;
   name?: string;
   icon: React.ReactNode;
   pointer?: DrawnixPointerType;
-  key?: PopupKey | 'image' | 'extra-tools';
+  key?: PopupKey | 'image' | 'ai-generate' | 'extra-tools';
 };
 
 const isBasicPointer = (pointer: string) => {
@@ -109,6 +110,11 @@ export const BUTTONS: AppToolButtonProps[] = [
     key: 'image',
   },
   {
+    icon: AIGenerateIcon,
+    titleKey: 'toolbar.aiGenerate',
+    key: 'ai-generate',
+  },
+  {
     icon: ExtraToolsIcon,
     titleKey: 'toolbar.extraTools',
     key: 'extra-tools',
@@ -129,7 +135,7 @@ export const isShapePointer = (board: PlaitBoard) => {
 
 export const CreationToolbar = () => {
   const board = useBoard();
-  const { appState } = useDrawnix();
+  const { appState, setAppState } = useDrawnix();
   const { t } = useI18n();
   const setPointer = useSetPointer();
   const container = PlaitBoard.getBoardContainer(board);
@@ -289,6 +295,21 @@ export const CreationToolbar = () => {
                   ></ArrowPicker>
                 </PopoverContent>
               </Popover>
+            );
+          }
+          if (button.key === 'ai-generate') {
+            return (
+              <ToolButton
+                key={index}
+                type="icon"
+                icon={button.icon}
+                visible={true}
+                title={button.titleKey ? t(button.titleKey) : ''}
+                aria-label={button.titleKey ? t(button.titleKey) : ''}
+                onPointerUp={() => {
+                  setAppState({ ...appState, openAIGenerate: true });
+                }}
+              />
             );
           }
           if (button.key === 'extra-tools') {
