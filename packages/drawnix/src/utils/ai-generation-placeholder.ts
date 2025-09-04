@@ -28,17 +28,44 @@ export const PlaceholderRegistry = {
 
 /**
  * 创建AI生成占位符图片
+ * 自动匹配选中图像的尺寸
  */
 export const createAIPlaceholder = (
   board: PlaitBoard,
   taskId: string,
   targetPoint?: Point,
-  width: number = 200,
-  height: number = 200
+  width?: number,
+  height?: number
 ): PlaceholderImage => {
-  // 创建浅蓝色占位符图片 SVG
+  // 如果没有指定尺寸，尝试从选中的图像获取尺寸
+  let placeholderWidth = width || 200;
+  let placeholderHeight = height || 200;
+  
+  if (!width || !height) {
+    const selectedElements = getSelectedElements(board);
+    const selectedImages = selectedElements.filter(el => 
+      PlaitDrawElement.isImage && PlaitDrawElement.isImage(el)
+    );
+    
+    if (selectedImages.length > 0) {
+      // 使用最后一个选中图像的尺寸
+      const lastImage = selectedImages[selectedImages.length - 1] as any;
+      const imageWidth = lastImage.points[1][0] - lastImage.points[0][0];
+      const imageHeight = lastImage.points[1][1] - lastImage.points[0][1];
+      
+      placeholderWidth = imageWidth;
+      placeholderHeight = imageHeight;
+      
+      console.log('Placeholder: 使用选中图像尺寸', {
+        originalWidth: imageWidth,
+        originalHeight: imageHeight,
+        aspectRatio: (imageWidth / imageHeight).toFixed(2)
+      });
+    }
+  }
+  // 创建浅蓝色占位符图片 SVG，使用动态尺寸
   const placeholderSvg = `
-    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${placeholderWidth}" height="${placeholderHeight}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="dots" patternUnits="userSpaceOnUse" width="20" height="20">
           <circle cx="10" cy="10" r="2" fill="#93c5fd" opacity="0.3"/>
@@ -46,7 +73,7 @@ export const createAIPlaceholder = (
       </defs>
       <rect width="100%" height="100%" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="2" stroke-dasharray="8,4" rx="8"/>
       <rect width="100%" height="100%" fill="url(#dots)"/>
-      <g transform="translate(${width/2 - 40}, ${height/2 - 20})">
+      <g transform="translate(${placeholderWidth/2 - 40}, ${placeholderHeight/2 - 20})">
         <circle cx="40" cy="20" r="15" fill="#0ea5e9" opacity="0.2">
           <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" repeatCount="indefinite"/>
         </circle>
@@ -111,11 +138,11 @@ export const createAIPlaceholder = (
     }
   }
 
-  // 创建占位符图像对象
+  // 创建占位符图像对象，使用动态尺寸
   const imageItem = {
     url: dataUrl,
-    width,
-    height
+    width: placeholderWidth,
+    height: placeholderHeight
   };
 
   // 插入占位符到画布

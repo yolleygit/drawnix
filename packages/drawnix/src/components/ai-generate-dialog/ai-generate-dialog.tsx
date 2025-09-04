@@ -45,8 +45,8 @@ interface SelectedImageData {
   mimeType: string;
 }
 
-// 辅助函数：从 URL 获取图像的 base64 数据（带图像压缩）
-const getImageBase64 = async (url: string, maxWidth: number = 1024, quality: number = 0.8): Promise<{ base64: string; mimeType: string }> => {
+// 辅助函数：从 URL 获取图像的 base64 数据（智能压缩）
+const getImageBase64 = async (url: string, maxWidth: number = 1536, quality: number = 0.85): Promise<{ base64: string; mimeType: string }> => {
   // 如果已经是 data URL 格式，需要解析并可能压缩
   if (url.startsWith('data:')) {
     try {
@@ -54,14 +54,19 @@ const getImageBase64 = async (url: string, maxWidth: number = 1024, quality: num
       if (match) {
         const originalMimeType = match[1];
         const originalBase64 = match[2];
-        console.log('图片已是 data URL 格式，检查大小:', { mimeType: originalMimeType, base64Length: originalBase64.length });
+        console.log('图片已是 data URL 格式，检查大小:', { 
+          mimeType: originalMimeType, 
+          base64Length: originalBase64.length,
+          estimatedSizeMB: (originalBase64.length * 0.75 / 1024 / 1024).toFixed(2)
+        });
         
-        // 如果 base64 太大（超过 1MB），进行压缩
-        if (originalBase64.length > 1400000) { // 约 1MB
-          console.log('图片过大，开始压缩...');
+        // 提高压缩阈值到 3MB，并优先保持图像质量
+        if (originalBase64.length > 4200000) { // 约 3MB
+          console.log('图片较大，进行轻度压缩保持质量...');
           return await compressImage(url, maxWidth, quality);
         }
         
+        console.log('图片尺寸合适，直接使用原图');
         return { base64: originalBase64, mimeType: originalMimeType };
       } else {
         throw new Error('无效的 data URL 格式');
@@ -72,12 +77,12 @@ const getImageBase64 = async (url: string, maxWidth: number = 1024, quality: num
     }
   }
 
-  // 对于外部 URL，使用 canvas 转换
+  // 对于外部 URL，使用轻度压缩策略
   return await compressImage(url, maxWidth, quality);
 };
 
-// 图像压缩函数
-const compressImage = async (url: string, maxWidth: number = 1024, quality: number = 0.8): Promise<{ base64: string; mimeType: string }> => {
+// 图像智能压缩函数，保持更好的质量
+const compressImage = async (url: string, maxWidth: number = 1536, quality: number = 0.85): Promise<{ base64: string; mimeType: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -92,34 +97,52 @@ const compressImage = async (url: string, maxWidth: number = 1024, quality: numb
           return;
         }
         
-        // 计算压缩后的尺寸
+        // 智能尺寸计算：只有在必要时才压缩
         let { width, height } = img;
+        const originalAspectRatio = width / height;
+        
+        // 只有当图像宽度超过阈值时才缩放
         if (width > maxWidth) {
-          height = (height * maxWidth) / width;
           width = maxWidth;
+          height = Math.round(width / originalAspectRatio);
+          console.log(`图像尺寸超过${maxWidth}px，进行缩放保持纵横比`);
+        } else {
+          console.log('图像尺寸合适，保持原尺寸');
         }
         
         canvas.width = width;
         canvas.height = height;
         
-        // 绘制压缩后的图像
+        // 使用高质量绘制
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         
-        // 输出为 JPEG 格式以进一步压缩
-        const dataURL = canvas.toDataURL('image/jpeg', quality);
-        const base64 = dataURL.split(',')[1];
-        const mimeType = 'image/jpeg';
+        // 优先使用 PNG 保持透明度，只有在文件太大时才使用 JPEG
+        let dataURL = canvas.toDataURL('image/png');
+        let mimeType = 'image/png';
         
-        console.log('图像压缩完成:', {
+        // 如果 PNG 文件太大，则使用高质量 JPEG
+        if (dataURL.length > 4200000) { // 大于 3MB 才转 JPEG
+          dataURL = canvas.toDataURL('image/jpeg', quality);
+          mimeType = 'image/jpeg';
+          console.log('PNG文件较大，转换为高质量JPEG');
+        }
+        
+        const base64 = dataURL.split(',')[1];
+        
+        console.log('图像处理完成:', {
           originalSize: `${img.width}x${img.height}`,
-          compressedSize: `${width}x${height}`,
+          processedSize: `${width}x${height}`,
+          format: mimeType,
           base64Length: base64.length,
-          compressionRatio: (base64.length / (img.width * img.height * 4 * 1.37)).toFixed(2) // 估算压缩比
+          estimatedSizeMB: (base64.length * 0.75 / 1024 / 1024).toFixed(2),
+          qualityPreserved: width === img.width && height === img.height
         });
         
         resolve({ base64, mimeType });
       } catch (error) {
-        console.error('图像压缩失败:', error);
+        console.error('图像处理失败:', error);
         reject(error);
       }
     };
