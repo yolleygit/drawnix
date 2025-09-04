@@ -346,13 +346,45 @@ export class AIGenerationWorker {
   private async processApiResponse(response: Response): Promise<string> {
     if (!response.ok) {
       let errorMessage;
+      let errorDetails = '';
+      
       try {
         const errorData = await response.json();
-        errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
-      } catch {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        console.error('Worker: API 返回错误数据:', errorData);
+        
+        if (response.status === 500) {
+          errorMessage = 'API服务器内部错误。请检查：\n' +
+                        '1. API Key是否有效且具有图像生成权限\n' +
+                        '2. 代理服务器是否正常运行\n' +
+                        '3. 是否超出了API调用限制';
+        } else if (response.status === 429) {
+          errorMessage = 'API调用频率超限，请稍后再试';
+        } else if (response.status === 401) {
+          errorMessage = 'API Key无效或已过期，请更新API Key';
+        } else if (response.status === 403) {
+          errorMessage = 'API Key没有图像生成权限，请检查API Key设置';
+        } else {
+          errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+        }
+        
+        if (errorData.error?.details) {
+          errorDetails = '\n详细信息: ' + JSON.stringify(errorData.error.details);
+        }
+        
+      } catch (parseError) {
+        console.error('Worker: 解析API错误响应失败:', parseError);
+        
+        if (response.status === 500) {
+          errorMessage = 'API服务器内部错误 (500)。可能的原因：\n' +
+                        '1. 代理服务器配置错误\n' +
+                        '2. API Key权限不足\n' +
+                        '3. 请求格式不正确';
+        } else {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
       }
-      throw new Error(errorMessage);
+      
+      throw new Error(errorMessage + errorDetails);
     }
 
     const data = await response.json();
