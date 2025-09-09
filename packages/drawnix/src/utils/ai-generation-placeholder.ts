@@ -243,17 +243,19 @@ export const createAIPlaceholder = (
         
         <!-- AI图标 -->
         <g transform="translate(0, ${-placeholderHeight/4})">
-          <circle cx="0" cy="0" r="20" fill="#3b82f6" opacity="0.2" filter="url(#glow)">
+          <circle cx="0" cy="0" r="${Math.max(30, Math.min(50, placeholderWidth * 0.08))}" fill="#3b82f6" opacity="0.2" filter="url(#glow)">
             <animate attributeName="opacity" values="0.2;0.4;0.2" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="r" values="20;22;20" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="${Math.max(30, Math.min(50, placeholderWidth * 0.08))};${Math.max(32, Math.min(52, placeholderWidth * 0.08 + 2))};${Math.max(30, Math.min(50, placeholderWidth * 0.08))}" dur="2s" repeatCount="indefinite"/>
           </circle>
-          <text x="0" y="6" text-anchor="middle" fill="#1e40af" font-family="Arial, sans-serif" 
-                font-size="16" font-weight="bold">AI</text>
+          <text x="0" y="${Math.max(8, Math.min(12, placeholderWidth * 0.03))}" text-anchor="middle" fill="#1e40af" 
+                font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+                font-size="${Math.max(24, Math.min(32, placeholderWidth * 0.08))}" font-weight="bold">AI</text>
         </g>
         
         <!-- 提示词显示 -->
         <text x="0" y="${-placeholderHeight/8}" text-anchor="middle" fill="#374151" 
-              font-family="Arial, sans-serif" font-size="${Math.min(14, placeholderWidth/20)}" 
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${Math.max(20, Math.min(32, placeholderWidth/12))}" 
               font-weight="500">${displayPrompt}</text>
         
         <!-- 进度条背景 -->
@@ -268,7 +270,8 @@ export const createAIPlaceholder = (
         
         <!-- 进度百分比 -->
         <text x="0" y="${placeholderHeight/8 + 25}" text-anchor="middle" fill="#6b7280" 
-              font-family="Arial, sans-serif" font-size="12">${progressPercent}%</text>
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${Math.max(16, Math.min(24, placeholderWidth/16))}">${progressPercent}%</text>
               
         <!-- 加载动画点 -->
         <g transform="translate(0, ${placeholderHeight/4})">
@@ -971,12 +974,12 @@ export const generateProhibitedContentSVG = (
   const displayPrompt = prompt && prompt.length > 35 ? 
     prompt.substring(0, 32) + '...' : (prompt || '生成请求');
   
-  // 根据占位符大小计算合适的字体尺寸（大幅增加字体大小）
-  const iconSize = Math.max(32, Math.min(60, width * 0.15)); // 图标大小：宽度的15%，最小32px，最大60px
-  const titleFontSize = Math.max(24, Math.min(36, width * 0.12)); // 标题字体：宽度的12%，最小24px，最大36px
-  const promptFontSize = Math.max(18, Math.min(28, width * 0.09)); // 提示词字体：宽度的9%，最小18px，最大28px
-  const suggestionFontSize = Math.max(16, Math.min(24, width * 0.08)); // 建议字体：宽度的8%，最小16px，最大24px
-  const technicalFontSize = Math.max(14, Math.min(20, width * 0.06)); // 技术说明字体：宽度的6%，最小14px，最大20px
+  // 根据占位符大小计算合适的字体尺寸（再次大幅增加字体大小，至少2倍）
+  const iconSize = Math.max(60, Math.min(100, width * 0.20)); // 图标大小：宽度的20%，最小60px，最大100px
+  const titleFontSize = Math.max(48, Math.min(72, width * 0.24)); // 标题字体：宽度的24%，最小48px，最大72px
+  const promptFontSize = Math.max(36, Math.min(56, width * 0.18)); // 提示词字体：宽度的18%，最小36px，最大56px
+  const suggestionFontSize = Math.max(32, Math.min(48, width * 0.16)); // 建议字体：宽度的16%，最小32px，最大48px
+  const technicalFontSize = Math.max(28, Math.min(40, width * 0.12)); // 技术说明字体：宽度的12%，最小28px，最大40px
   
   // 计算垂直间距
   const verticalSpacing = Math.max(20, height * 0.08); // 垂直间距：高度的8%，最小20px
