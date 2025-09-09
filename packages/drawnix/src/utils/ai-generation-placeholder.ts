@@ -971,12 +971,12 @@ export const generateProhibitedContentSVG = (
   const displayPrompt = prompt && prompt.length > 35 ? 
     prompt.substring(0, 32) + '...' : (prompt || '生成请求');
   
-  // 根据占位符大小计算合适的字体尺寸
-  const iconSize = Math.max(24, Math.min(40, width * 0.12)); // 图标大小：宽度的12%，最小24px，最大40px
-  const titleFontSize = Math.max(16, Math.min(24, width * 0.08)); // 标题字体：宽度的8%，最小16px，最大24px
-  const promptFontSize = Math.max(14, Math.min(18, width * 0.06)); // 提示词字体：宽度的6%，最小14px，最大18px
-  const suggestionFontSize = Math.max(12, Math.min(16, width * 0.05)); // 建议字体：宽度的5%，最小12px，最大16px
-  const technicalFontSize = Math.max(10, Math.min(14, width * 0.04)); // 技术说明字体：宽度的4%，最小10px，最大14px
+  // 根据占位符大小计算合适的字体尺寸（大幅增加字体大小）
+  const iconSize = Math.max(32, Math.min(60, width * 0.15)); // 图标大小：宽度的15%，最小32px，最大60px
+  const titleFontSize = Math.max(24, Math.min(36, width * 0.12)); // 标题字体：宽度的12%，最小24px，最大36px
+  const promptFontSize = Math.max(18, Math.min(28, width * 0.09)); // 提示词字体：宽度的9%，最小18px，最大28px
+  const suggestionFontSize = Math.max(16, Math.min(24, width * 0.08)); // 建议字体：宽度的8%，最小16px，最大24px
+  const technicalFontSize = Math.max(14, Math.min(20, width * 0.06)); // 技术说明字体：宽度的6%，最小14px，最大20px
   
   // 计算垂直间距
   const verticalSpacing = Math.max(20, height * 0.08); // 垂直间距：高度的8%，最小20px
