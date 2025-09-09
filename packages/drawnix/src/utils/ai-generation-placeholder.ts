@@ -968,8 +968,23 @@ export const generateProhibitedContentSVG = (
   height: number = 200
 ): string => {
   // 准备显示的文本
-  const displayPrompt = prompt && prompt.length > 40 ? 
-    prompt.substring(0, 37) + '...' : (prompt || '生成请求');
+  const displayPrompt = prompt && prompt.length > 35 ? 
+    prompt.substring(0, 32) + '...' : (prompt || '生成请求');
+  
+  // 根据占位符大小计算合适的字体尺寸
+  const iconSize = Math.max(24, Math.min(40, width * 0.12)); // 图标大小：宽度的12%，最小24px，最大40px
+  const titleFontSize = Math.max(16, Math.min(24, width * 0.08)); // 标题字体：宽度的8%，最小16px，最大24px
+  const promptFontSize = Math.max(14, Math.min(18, width * 0.06)); // 提示词字体：宽度的6%，最小14px，最大18px
+  const suggestionFontSize = Math.max(12, Math.min(16, width * 0.05)); // 建议字体：宽度的5%，最小12px，最大16px
+  const technicalFontSize = Math.max(10, Math.min(14, width * 0.04)); // 技术说明字体：宽度的4%，最小10px，最大14px
+  
+  // 计算垂直间距
+  const verticalSpacing = Math.max(20, height * 0.08); // 垂直间距：高度的8%，最小20px
+  const iconY = -height * 0.25; // 图标位置
+  const titleY = iconY + iconSize + verticalSpacing * 0.6; // 标题位置
+  const promptY = titleY + titleFontSize + verticalSpacing * 0.8; // 提示词位置
+  const suggestionY = promptY + promptFontSize + verticalSpacing * 0.8; // 建议位置
+  const technicalY = suggestionY + suggestionFontSize + verticalSpacing * 0.6; // 技术说明位置
   
   // 创建错误提示占位符SVG
   const errorSvg = `
@@ -986,46 +1001,53 @@ export const generateProhibitedContentSVG = (
           <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
           <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
         </linearGradient>
+        
+        <!-- 阴影效果 -->
+        <filter id="textShadow">
+          <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#00000020"/>
+        </filter>
       </defs>
       
       <!-- 背景边框 -->
-      <rect width="100%" height="100%" fill="url(#warningGradient)" stroke="#f59e0b" stroke-width="2" 
-            stroke-dasharray="8,4" rx="12" ry="12">
-        <animate attributeName="stroke-dashoffset" values="0;12" dur="3s" repeatCount="indefinite"/>
+      <rect width="100%" height="100%" fill="url(#warningGradient)" stroke="#f59e0b" stroke-width="3" 
+            stroke-dasharray="12,6" rx="16" ry="16">
+        <animate attributeName="stroke-dashoffset" values="0;18" dur="3s" repeatCount="indefinite"/>
       </rect>
       
       <!-- 中心内容区域 -->
       <g transform="translate(${width/2}, ${height/2})">
         
         <!-- 警告图标 -->
-        <g transform="translate(0, ${-height/4})">
-          <circle cx="0" cy="0" r="22" fill="url(#iconGradient)" opacity="0.2">
-            <animate attributeName="opacity" values="0.2;0.4;0.2" dur="2s" repeatCount="indefinite"/>
+        <g transform="translate(0, ${iconY})">
+          <circle cx="0" cy="0" r="${iconSize * 0.8}" fill="url(#iconGradient)" opacity="0.15">
+            <animate attributeName="opacity" values="0.15;0.3;0.15" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="${iconSize * 0.8};${iconSize * 0.9};${iconSize * 0.8}" dur="2s" repeatCount="indefinite"/>
           </circle>
-          <!-- 感叹号 -->
-          <rect x="-2" y="-12" width="4" height="16" fill="#f59e0b" rx="2"/>
-          <circle cx="0" cy="8" r="3" fill="#f59e0b"/>
+          <!-- 感叹号主体 -->
+          <rect x="${-iconSize * 0.08}" y="${-iconSize * 0.4}" width="${iconSize * 0.16}" height="${iconSize * 0.6}" fill="#f59e0b" rx="${iconSize * 0.08}"/>
+          <!-- 感叹号底部圆点 -->
+          <circle cx="0" cy="${iconSize * 0.35}" r="${iconSize * 0.12}" fill="#f59e0b"/>
         </g>
         
         <!-- 主要错误信息 -->
-        <text x="0" y="${-height/8}" text-anchor="middle" fill="#dc2626" 
-              font-family="Arial, sans-serif" font-size="${Math.min(14, width/18)}" 
-              font-weight="bold">内容被模型拒绝</text>
+        <text x="0" y="${titleY}" text-anchor="middle" fill="#dc2626" 
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${titleFontSize}" font-weight="bold" filter="url(#textShadow)">内容被模型拒绝</text>
         
         <!-- 原始提示词 -->
-        <text x="0" y="0" text-anchor="middle" fill="#6b7280" 
-              font-family="Arial, sans-serif" font-size="${Math.min(11, width/22)}" 
-              font-weight="normal">"${displayPrompt}"</text>
+        <text x="0" y="${promptY}" text-anchor="middle" fill="#6b7280" 
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${promptFontSize}" font-weight="500">"${displayPrompt}"</text>
         
         <!-- 解决建议 -->
-        <text x="0" y="${height/8}" text-anchor="middle" fill="#374151" 
-              font-family="Arial, sans-serif" font-size="${Math.min(10, width/24)}" 
-              font-weight="normal">请修改提示词后重试</text>
+        <text x="0" y="${suggestionY}" text-anchor="middle" fill="#374151" 
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${suggestionFontSize}" font-weight="500">请修改提示词后重试</text>
               
         <!-- 技术说明 -->
-        <text x="0" y="${height/4}" text-anchor="middle" fill="#9ca3af" 
-              font-family="Arial, sans-serif" font-size="${Math.min(8, width/30)}" 
-              font-weight="normal">模型安全机制触发</text>
+        <text x="0" y="${technicalY}" text-anchor="middle" fill="#9ca3af" 
+              font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-size="${technicalFontSize}" font-weight="normal">模型安全机制触发</text>
         
       </g>
     </svg>
