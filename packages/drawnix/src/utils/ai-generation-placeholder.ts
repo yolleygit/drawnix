@@ -1,6 +1,7 @@
 import { PlaitBoard, Point, PlaitElement, getSelectedElements, CoreTransforms, Transforms } from '@plait/core';
 import { DrawTransforms, PlaitDrawElement, createArrowLineElement, ArrowLineShape, ArrowLineMarkerType, ArrowLineHandle } from '@plait/draw';
 import { PlaceholderImage } from '../hooks/use-ai-generation-tasks';
+import { drawImageWithResize } from './image';
 
 // 使用外部映射表来跟踪占位符，避免直接修改不可扩展的对象
 const placeholderRegistry = new Map<string, string>(); // elementId -> taskId
@@ -428,11 +429,11 @@ export const findAllPlaceholdersByTaskId = (
  * 替换占位符为真实图片（清理所有同任务的占位符）
  * @returns 新插入图像的ID，失败时返回null
  */
-export const replacePlaceholderWithImage = (
+export const replacePlaceholderWithImage = async (
   board: PlaitBoard,
   taskId: string,
   generatedImageUrl: string
-): string | null => {
+): Promise<string | null> => {
   console.log('Placeholder: 开始替换占位符', {
     taskId, 
     generatedImageUrl: generatedImageUrl ? '已提供' : '未提供',
@@ -460,24 +461,52 @@ export const replacePlaceholderWithImage = (
     placeholderPoints: placeholder.points
   });
 
-  // 获取占位符的位置和尺寸
+  // 获取占位符的位置
   const position = placeholder.points[0];
-  const width = placeholder.points[1][0] - placeholder.points[0][0];
-  const height = placeholder.points[1][1] - placeholder.points[0][1];
-
+  
   try {
-    // 创建新图片项
-    const imageItem = {
-      url: generatedImageUrl,
-      width,
-      height
-    };
-
-    console.log('Placeholder: 准备插入新图片到位置:', position);
+    // 使用drawImageWithResize函数，让它自动处理尺寸
+    console.log('Placeholder: 开始加载和插入生成的图片');
     
-    // 在占位符位置插入新图片
-    DrawTransforms.insertImage(board, imageItem, position);
-    console.log('Placeholder: 新图片插入成功');
+    // 创建 Image 对象加载图片
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    const imageLoadPromise = new Promise<void>((resolve, reject) => {
+      img.onload = async () => {
+        try {
+          console.log('Placeholder: 图片加载成功，尺寸:', {
+            width: img.width,
+            height: img.height,
+            aspectRatio: (img.width / img.height).toFixed(2)
+          });
+          
+          // 使用 drawImageWithResize 函数自动处理尺寸
+          await drawImageWithResize(
+            board, 
+            img, 
+            position[0], 
+            position[1],
+            Math.max(img.width, 400) // 保持原始尺寸或最小400px
+          );
+          
+          console.log('Placeholder: 图片插入成功');
+          resolve();
+        } catch (error) {
+          console.error('Placeholder: 图片插入失败:', error);
+          reject(error);
+        }
+      };
+      
+      img.onerror = (error) => {
+        console.error('Placeholder: 图片加载失败:', error);
+        reject(new Error('图片加载失败'));
+      };
+      
+      img.src = generatedImageUrl;
+    });
+    
+    await imageLoadPromise;
 
     // 获取刚插入的图像元素（最后一个元素）
     const newImageElement = board.children[board.children.length - 1] as any;
@@ -821,16 +850,18 @@ export const updatePlaceholderProgress = (
       progressPercentage
     );
     
-    // 直接更新占位符的URL
-    (mainPlaceholder as any).url = newSvgUrl;
-    
-    console.log('Placeholder: 成功更新占位符内容', {
+    // 简化占位符更新机制 - 直接跳过复杂的更新操作
+    // 在占位符阶段不强制更新，只记录进度
+    console.log('Placeholder: 进度更新', {
       taskId,
       placeholderId: mainPlaceholder.id,
       progress: progressPercentage + '%',
-      stage
+      stage,
+      note: '跳过URL更新以避免只读属性错误'
     });
     
+    // 直接返回true，不强制更新占位符内容
+    // 占位符的最终更新将在替换阶段完成
     return true;
     
   } catch (error) {

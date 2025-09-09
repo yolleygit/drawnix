@@ -158,100 +158,15 @@ const compressImage = async (url: string, maxWidth = 1536, quality = 0.85): Prom
 
 const generateImageWithGemini = async (prompt: string, apiKey: string, baseUrl: string, imageModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
   try {
-    // 构建请求内容，包括文本和图像
-    const parts: any[] = [];
+    // 检测API类型：OpenRouter vs Gemini
+    const isOpenRouter = baseUrl.includes('openrouter.ai');
+    const isOfficialGemini = baseUrl.includes('googleapis.com');
     
-    // 添加选中的图像
-    selectedImages.forEach(imageData => {
-      parts.push({
-        inline_data: {
-          mime_type: imageData.mimeType,
-          data: imageData.base64
-        }
-      });
-    });
-    
-    // 添加文本提示，使用更具体的图像生成指令
-    const imageGenerationPrompt = selectedImages.length > 0 
-      ? `Transform the provided images based on this description: ${prompt}. Create a new photorealistic, high-quality image. Generate the actual image, do not provide text descriptions.`
-      : `Create a photorealistic, high-quality image: ${prompt}. Generate the actual image, do not provide text descriptions.`;
-    
-    parts.push({
-      text: imageGenerationPrompt
-    });
-
-    // 根据baseUrl判断使用哪种API密钥传递方式
-    const isOfficialApi = baseUrl.includes('googleapis.com');
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (isOfficialApi) {
-      // Google官方API使用x-goog-api-key
-      headers['x-goog-api-key'] = apiKey;
+    if (isOpenRouter) {
+      return await generateImageWithOpenRouter(prompt, apiKey, baseUrl, imageModel, selectedImages);
     } else {
-      // 第三方代理可能使用Authorization Bearer或其他方式
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      return await generateImageWithGeminiAPI(prompt, apiKey, baseUrl, imageModel, selectedImages);
     }
-    
-    const requestBody = JSON.stringify({
-      contents: [{
-        parts: parts
-      }]
-    });
-    
-    // 若已有缓存模板，优先只使用该模板
-    const cachedTemplate = getCachedTemplate(baseUrl);
-    if (cachedTemplate) {
-      const apiUrl = cachedTemplate.replace('{baseUrl}', baseUrl).replace('{model}', imageModel);
-      console.log(`尝试API路径(缓存): ${apiUrl}`);
-      const response = await fetch(apiUrl, { method: 'POST', headers, body: requestBody });
-      console.log(`API路径(缓存) 返回状态: ${response.status}`);
-      if (response.status !== 404) {
-        return await processImageGenerationResponse(response);
-      }
-      console.warn('缓存路径出现404，将回退到自动探测');
-    }
-
-    // 自动探测不同的API路径模板
-    const apiPathTemplates = [
-      '{baseUrl}/models/{model}:generateContent',
-      '{baseUrl}/v1beta/models/{model}:generateContent',
-      '{baseUrl}/v1/models/{model}:generateContent',
-      '{baseUrl}/{model}:generateContent',
-      '{baseUrl}/api/generate',
-    ];
-    
-    let lastError: Error | null = null;
-    
-    for (const template of apiPathTemplates) {
-      const apiUrl = template.replace('{baseUrl}', baseUrl).replace('{model}', imageModel);
-      try {
-        console.log(`尝试API路径: ${apiUrl}`);
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers,
-          body: requestBody
-        });
-        
-        console.log(`API路径 ${apiUrl} 返回状态: ${response.status}`);
-        
-        // 如果不是404，说明路径存在，缓存模板并继续处理响应
-        if (response.status !== 404) {
-          setPathCache(baseUrl, template);
-          return await processImageGenerationResponse(response);
-        }
-        
-      } catch (error) {
-        console.log(`API路径 ${apiUrl} 请求失败:`, error);
-        lastError = error instanceof Error ? error : new Error(String(error));
-      }
-    }
-    
-    // 如果所有路径都失败，抛出最后一个错误
-    throw lastError || new Error('所有API路径都尝试失败');
-    
   } catch (error) {
     console.error('Error generating image:', error);
     if (error instanceof Error) {
@@ -259,6 +174,223 @@ const generateImageWithGemini = async (prompt: string, apiKey: string, baseUrl: 
     }
     throw new Error('生成图像时发生未知错误');
   }
+};
+
+// OpenRouter API调用
+const generateImageWithOpenRouter = async (prompt: string, apiKey: string, baseUrl: string, imageModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+    'HTTP-Referer': window.location.origin,
+    'X-Title': 'Drawnix'
+  };
+  
+  // 构建OpenAI格式的messages
+  const messages: any[] = [];
+  
+  if (selectedImages.length > 0) {
+    // 有图像时，构建多模态消息
+    const content: any[] = [];
+    
+    // 添加图像
+    selectedImages.forEach(imageData => {
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${imageData.mimeType};base64,${imageData.base64}`
+        }
+      });
+    });
+    
+    // 添加文本提示
+    const imageGenerationPrompt = `Transform the provided images based on this description: ${prompt}. Create a new photorealistic, high-quality image.`;
+    content.push({
+      type: 'text',
+      text: imageGenerationPrompt
+    });
+    
+    messages.push({
+      role: 'user',
+      content: content
+    });
+  } else {
+    // 纯文本生图
+    const imageGenerationPrompt = `Create a photorealistic, high-quality image: ${prompt}.`;
+    messages.push({
+      role: 'user',
+      content: imageGenerationPrompt
+    });
+  }
+  
+  const requestBody = JSON.stringify({
+    model: imageModel,
+    messages: messages,
+    max_tokens: 1000,
+    temperature: 0.7
+  });
+  
+  // OpenRouter 正确的 API 端点
+  const apiUrl = `${baseUrl}/api/v1/chat/completions`;
+  console.log(`OpenRouter API调用: ${apiUrl}`);
+  
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers,
+    body: requestBody
+  });
+  
+  console.log(`OpenRouter API返回状态: ${response.status}`);
+  
+  if (!response.ok) {
+    let errorMessage;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    } catch {
+      errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    }
+    throw new Error(`OpenRouter API错误: ${errorMessage}`);
+  }
+  
+  const data = await response.json();
+  console.log('OpenRouter API Response:', JSON.stringify(data, null, 2));
+  
+  // 处理OpenRouter响应
+  if (data.choices && data.choices.length > 0) {
+    const choice = data.choices[0];
+    if (choice.message) {
+      // 检查是否有图像数据
+      if (choice.message.images && choice.message.images.length > 0) {
+        const imageData = choice.message.images[0];
+        if (imageData.image_url && imageData.image_url.url) {
+          console.log('OpenRouter返回图像URL格式');
+          return imageData.image_url.url;
+        }
+      }
+      
+      // 检查文本内容中是否包含图像URL或base64
+      if (choice.message.content) {
+        const content = choice.message.content;
+        
+        // 检查是否包含图像URL
+        const imageUrlMatch = content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i);
+        if (imageUrlMatch) {
+          console.log('OpenRouter返回图像URL');
+          return imageUrlMatch[0];
+        }
+        
+        // 检查是否是base64格式
+        const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+\/=]+)/);
+        if (base64Match) {
+          console.log('OpenRouter返回base64图像');
+          return base64Match[0];
+        }
+        
+        // 如果没有找到图像，说明可能是纯文本响应
+        console.log('OpenRouter返回纯文本响应，可能不支持图像生成:', content.substring(0, 100));
+        throw new Error(`所选模型不支持图像生成，仅返回文本描述。请在设置中选择支持图像生成的模型。`);
+      }
+    }
+  }
+  
+  throw new Error('OpenRouter API返回了意外的响应格式');
+};
+
+// Gemini API调用（原有逻辑）
+const generateImageWithGeminiAPI = async (prompt: string, apiKey: string, baseUrl: string, imageModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
+  // 构建请求内容，包括文本和图像
+  const parts: any[] = [];
+  
+  // 添加选中的图像
+  selectedImages.forEach(imageData => {
+    parts.push({
+      inline_data: {
+        mime_type: imageData.mimeType,
+        data: imageData.base64
+      }
+    });
+  });
+  
+  // 添加文本提示，使用更具体的图像生成指令
+  const imageGenerationPrompt = selectedImages.length > 0 
+    ? `Transform the provided images based on this description: ${prompt}. Create a new photorealistic, high-quality image. Generate the actual image, do not provide text descriptions.`
+    : `Create a photorealistic, high-quality image: ${prompt}. Generate the actual image, do not provide text descriptions.`;
+  
+  parts.push({
+    text: imageGenerationPrompt
+  });
+
+  // 根据baseUrl判断使用哪种API密钥传递方式
+  const isOfficialApi = baseUrl.includes('googleapis.com');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (isOfficialApi) {
+    // Google官方API使用x-goog-api-key
+    headers['x-goog-api-key'] = apiKey;
+  } else {
+    // 第三方代理可能使用Authorization Bearer或其他方式
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: parts
+    }]
+  });
+  
+  // 若已有缓存模板，优先只使用该模板
+  const cachedTemplate = getCachedTemplate(baseUrl);
+  if (cachedTemplate) {
+    const apiUrl = cachedTemplate.replace('{baseUrl}', baseUrl).replace('{model}', imageModel);
+    console.log(`尝试Gemini API路径(缓存): ${apiUrl}`);
+    const response = await fetch(apiUrl, { method: 'POST', headers, body: requestBody });
+    console.log(`Gemini API路径(缓存) 返回状态: ${response.status}`);
+    if (response.status !== 404) {
+      return await processImageGenerationResponse(response);
+    }
+    console.warn('缓存路径出现404，将回退到自动探测');
+  }
+
+  // 自动探测不同的API路径模板
+  const apiPathTemplates = [
+    '{baseUrl}/models/{model}:generateContent',
+    '{baseUrl}/v1beta/models/{model}:generateContent',
+    '{baseUrl}/v1/models/{model}:generateContent',
+    '{baseUrl}/{model}:generateContent',
+    '{baseUrl}/api/generate',
+  ];
+  
+  let lastError: Error | null = null;
+  
+  for (const template of apiPathTemplates) {
+    const apiUrl = template.replace('{baseUrl}', baseUrl).replace('{model}', imageModel);
+    try {
+      console.log(`尝试Gemini API路径: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: requestBody
+      });
+      
+      console.log(`Gemini API路径 ${apiUrl} 返回状态: ${response.status}`);
+      
+      // 如果不是404，说明路径存在，缓存模板并继续处理响应
+      if (response.status !== 404) {
+        setPathCache(baseUrl, template);
+        return await processImageGenerationResponse(response);
+      }
+      
+    } catch (error) {
+      console.log(`Gemini API路径 ${apiUrl} 请求失败:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  
+  // 如果所有路径都失败，抛出最后一个错误
+  throw lastError || new Error('所有Gemini API路径都尝试失败');
 };
 
 // 处理图像生成API响应的公共逻辑
@@ -329,6 +461,8 @@ export const AIGenerateDialog: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedImages, setSelectedImages] = useState<SelectedImageData[]>([]);
   const [isOptimizingPrompt, setIsOptimizingPrompt] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<'auto' | 'chinese' | 'english'>('english');
+  const [aspectRatioMode, setAspectRatioMode] = useState<'original' | 'square' | 'landscape' | 'portrait'>('original');
   const { createTask, updateTaskStatus } = useAIGenerationTasks();
 
   // 检测并加载选中的图像
@@ -466,6 +600,8 @@ export const AIGenerateDialog: React.FC = () => {
       // 获取原始选中图像的尺寸信息
       let originalWidth: number | undefined;
       let originalHeight: number | undefined;
+      let calculatedWidth: number | undefined;
+      let calculatedHeight: number | undefined;
       
       if (sourceImageIds.length > 0) {
         // 从画布上找到对应的图像元素获取尺寸
@@ -482,16 +618,27 @@ export const AIGenerateDialog: React.FC = () => {
             originalHeight,
             aspectRatio: (originalWidth / originalHeight).toFixed(2)
           });
+          
+          // 根据用户选择的横纵比模式计算尺寸
+          const { width: newWidth, height: newHeight } = calculateAspectRatioSize(originalWidth, originalHeight, aspectRatioMode);
+          calculatedWidth = newWidth;
+          calculatedHeight = newHeight;
+          console.log('AI生成对话框: 计算后的尺寸', {
+            aspectRatioMode,
+            originalSize: `${originalWidth}x${originalHeight}`,
+            calculatedSize: `${calculatedWidth}x${calculatedHeight}`,
+            aspectRatio: (calculatedWidth / calculatedHeight).toFixed(2)
+          });
         }
       }
       
-      // 立即创建占位符并插入到画布，传入原始图像的尺寸和提示词
+      // 立即创建占位符并插入到画布，使用计算后的尺寸和提示词
       const placeholder = createAIPlaceholder(
         board, 
         task.id, 
         undefined, // targetPoint
-        originalWidth, 
-        originalHeight,
+        calculatedWidth || originalWidth, 
+        calculatedHeight || originalHeight,
         prompt.trim(), // 显示用户输入的提示词
         0.1 // 初始进度 10%
       );
@@ -529,7 +676,194 @@ export const AIGenerateDialog: React.FC = () => {
     }
   };
 
+  // 横纵比计算函数
+  const calculateAspectRatioSize = (
+    originalWidth: number, 
+    originalHeight: number, 
+    mode: 'original' | 'square' | 'landscape' | 'portrait'
+  ): { width: number; height: number } => {
+    switch (mode) {
+      case 'original':
+        return { width: originalWidth, height: originalHeight };
+      
+      case 'square':
+        // 使用原图的最大边作为正方形的边长
+        const maxSide = Math.max(originalWidth, originalHeight);
+        return { width: maxSide, height: maxSide };
+      
+      case 'landscape':
+        // 横向比例 16:9，保持原图面积的近似值
+        const landscapeArea = originalWidth * originalHeight;
+        const landscapeWidth = Math.sqrt(landscapeArea * 16 / 9);
+        const landscapeHeight = landscapeWidth * 9 / 16;
+        return { width: Math.round(landscapeWidth), height: Math.round(landscapeHeight) };
+      
+      case 'portrait':
+        // 竖向比例 9:16，保持原图面积的近似值
+        const portraitArea = originalWidth * originalHeight;
+        const portraitHeight = Math.sqrt(portraitArea * 16 / 9);
+        const portraitWidth = portraitHeight * 9 / 16;
+        return { width: Math.round(portraitWidth), height: Math.round(portraitHeight) };
+      
+      default:
+        return { width: originalWidth, height: originalHeight };
+    }
+  };
+
+  // 语言检测辅助函数
+  const detectLanguage = (text: string): 'chinese' | 'english' | 'auto' => {
+    // 统计中文字符（包括中文标点）
+    const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef]/g;
+    const chineseMatches = text.match(chineseRegex) || [];
+    const chineseCount = chineseMatches.length;
+    
+    // 统计英文字符（字母和数字）
+    const englishRegex = /[a-zA-Z0-9]/g;
+    const englishMatches = text.match(englishRegex) || [];
+    const englishCount = englishMatches.length;
+    
+    // 总字符数（不包括空格和标点）
+    const totalCount = chineseCount + englishCount;
+    
+    if (totalCount === 0) return 'english'; // 默认英文
+    
+    const chineseRatio = chineseCount / totalCount;
+    const englishRatio = englishCount / totalCount;
+    
+    // 判断主要语言
+    if (chineseRatio >= 0.7) return 'chinese';
+    if (englishRatio >= 0.7) return 'english';
+    return 'auto'; // 如果两种语言都比较平衡，则返回auto
+  };
+
   const optimizePromptWithGemini = async (prompt: string, apiKey: string, baseUrl: string, promptModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
+    try {
+      // 检测API类型：OpenRouter vs Gemini
+      const isOpenRouter = baseUrl.includes('openrouter.ai');
+      
+      if (isOpenRouter) {
+        return await optimizePromptWithOpenRouter(prompt, apiKey, baseUrl, promptModel, selectedImages);
+      } else {
+        return await optimizePromptWithGeminiAPI(prompt, apiKey, baseUrl, promptModel, selectedImages);
+      }
+    } catch (error) {
+      console.error('Error optimizing prompt:', error);
+      throw error;
+    }
+  };
+  
+  // OpenRouter API优化提示词
+  const optimizePromptWithOpenRouter = async (prompt: string, apiKey: string, baseUrl: string, promptModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': window.location.origin,
+      'X-Title': 'Drawnix'
+    };
+    
+    // 根据用户选择的语言选项确定使用的语言
+    let languageToUse = selectedLanguage;
+    if (selectedLanguage === 'auto') {
+      languageToUse = detectLanguage(prompt);
+    }
+    console.log(`OpenRouter优化: 用户选择的语言: ${selectedLanguage}, 实际使用的语言: ${languageToUse}`);
+    
+    // 构建OpenAI格式的messages
+    const messages: any[] = [];
+    
+    // 根据确定的语言构建不同的优化指令
+    let optimizationPrompt = '';
+    
+    if (languageToUse === 'chinese') {
+      optimizationPrompt = selectedImages.length > 0
+        ? `请分析这些图像，并根据用户的描述："${prompt}"，生成一个更详细、更具体的中文图像生成提示词。请用纯中文描述，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的中文提示词，不要包含英文单词或其他说明。`
+        : `请将这个图像生成提示词优化得更加详细和具体："${prompt}"。请用纯中文描述，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的中文提示词，不要包含英文单词或其他说明。`;
+    } else if (languageToUse === 'english') {
+      optimizationPrompt = selectedImages.length > 0
+        ? `Please analyze these images and based on the user's description: "${prompt}", generate a more detailed and specific English image generation prompt. Use pure English to describe specific visual details, style, colors, composition and other elements to help AI generate better images. Only return the optimized English prompt, no Chinese characters or other explanations.`
+        : `Please optimize this image generation prompt to be more detailed and specific: "${prompt}". Use pure English to describe specific visual details, style, colors, composition and other elements to help AI generate better images. Only return the optimized English prompt, no Chinese characters or other explanations.`;
+    } else {
+      optimizationPrompt = selectedImages.length > 0
+        ? `请分析这些图像，并根据用户的描述："${prompt}"，生成一个更详细、更具体的图像生成提示词。请保持与用户输入相似的语言风格，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`
+        : `请将这个图像生成提示词优化得更加详细和具体："${prompt}"。请保持与用户输入相似的语言风格，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`;
+    }
+    
+    if (selectedImages.length > 0) {
+      // 有图像时，构建多模态消息
+      const content: any[] = [];
+      
+      // 添加图像
+      selectedImages.forEach(imageData => {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: `data:${imageData.mimeType};base64,${imageData.base64}`
+          }
+        });
+      });
+      
+      // 添加文本提示
+      content.push({
+        type: 'text',
+        text: optimizationPrompt
+      });
+      
+      messages.push({
+        role: 'user',
+        content: content
+      });
+    } else {
+      // 纯文本优化
+      messages.push({
+        role: 'user',
+        content: optimizationPrompt
+      });
+    }
+    
+    const requestBody = JSON.stringify({
+      model: promptModel,
+      messages: messages,
+      max_tokens: 500,
+      temperature: 0.3
+    });
+    
+    const apiUrl = `${baseUrl}/api/v1/chat/completions`;
+    console.log(`OpenRouter提示词优化API调用: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: requestBody
+    });
+    
+    console.log(`OpenRouter提示词优化API返回状态: ${response.status}`);
+    
+    if (!response.ok) {
+      let errorMessage;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(`OpenRouter API错误: ${errorMessage}`);
+    }
+    
+    const data = await response.json();
+    console.log('OpenRouter提示词优化响应:', JSON.stringify(data, null, 2));
+    
+    if (data.choices && data.choices.length > 0) {
+      const choice = data.choices[0];
+      if (choice.message && choice.message.content) {
+        return choice.message.content.trim();
+      }
+    }
+    
+    throw new Error('OpenRouter API返回了意外的响应格式');
+  };
+  
+  // Gemini API优化提示词（原有逻辑）
+  const optimizePromptWithGeminiAPI = async (prompt: string, apiKey: string, baseUrl: string, promptModel: string, selectedImages: SelectedImageData[] = []): Promise<string> => {
     try {
       const parts: any[] = [];
       
@@ -543,10 +877,32 @@ export const AIGenerateDialog: React.FC = () => {
         });
       });
       
-      // 构建优化提示词的指令
-      const optimizationPrompt = selectedImages.length > 0 
-        ? `请分析这些图像，并根据用户的描述："${prompt}"，生成一个更详细、更具体的图像生成提示词。请用中英文混合的形式，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`
-        : `请将这个图像生成提示词优化得更加详细和具体："${prompt}"。请用中英文混合的形式，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`;
+      // 根据用户选择的语言选项确定使用的语言
+      let languageToUse = selectedLanguage;
+      if (selectedLanguage === 'auto') {
+        languageToUse = detectLanguage(prompt);
+      }
+      console.log(`Gemini优化: 用户选择的语言: ${selectedLanguage}, 实际使用的语言: ${languageToUse}, 原始提示词: "${prompt}"`);
+      
+      // 根据确定的语言构建不同的优化指令
+      let optimizationPrompt = '';
+      
+      if (languageToUse === 'chinese') {
+        // 中文输入 - 生成纯中文提示词
+        optimizationPrompt = selectedImages.length > 0
+          ? `请分析这些图像，并根据用户的描述："${prompt}"，生成一个更详细、更具体的中文图像生成提示词。请用纯中文描述，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的中文提示词，不要包含英文单词或其他说明。`
+          : `请将这个图像生成提示词优化得更加详细和具体："${prompt}"。请用纯中文描述，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的中文提示词，不要包含英文单词或其他说明。`;
+      } else if (languageToUse === 'english') {
+        // 英文输入 - 生成纯英文提示词
+        optimizationPrompt = selectedImages.length > 0
+          ? `Please analyze these images and based on the user's description: "${prompt}", generate a more detailed and specific English image generation prompt. Use pure English to describe specific visual details, style, colors, composition and other elements to help AI generate better images. Only return the optimized English prompt, no Chinese characters or other explanations.`
+          : `Please optimize this image generation prompt to be more detailed and specific: "${prompt}". Use pure English to describe specific visual details, style, colors, composition and other elements to help AI generate better images. Only return the optimized English prompt, no Chinese characters or other explanations.`;
+      } else {
+        // 混合语言输入 - 保持原有的混合策略但更明确
+        optimizationPrompt = selectedImages.length > 0
+          ? `请分析这些图像，并根据用户的描述："${prompt}"，生成一个更详细、更具体的图像生成提示词。请保持与用户输入相似的语言风格，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`
+          : `请将这个图像生成提示词优化得更加详细和具体："${prompt}"。请保持与用户输入相似的语言风格，包含具体的视觉细节、风格、色彩、构图等要素，让AI能够生成更好的图像。只返回优化后的提示词，不要包含其他说明。`;
+      }
       
       parts.push({
         text: optimizationPrompt
@@ -576,9 +932,9 @@ export const AIGenerateDialog: React.FC = () => {
       const cachedTemplate = getCachedTemplate(baseUrl);
       if (cachedTemplate) {
         const apiUrl = cachedTemplate.replace('{baseUrl}', baseUrl).replace('{model}', promptModel);
-        console.log(`尝试提示词优化API路径(缓存): ${apiUrl}`);
+        console.log(`尝试Gemini提示词优化API路径(缓存): ${apiUrl}`);
         const response = await fetch(apiUrl, { method: 'POST', headers, body: requestBody });
-        console.log(`提示词优化API路径(缓存) 返回状态: ${response.status}`);
+        console.log(`Gemini提示词优化API路径(缓存) 返回状态: ${response.status}`);
         if (response.status !== 404) {
           return await processPromptOptimizationResponse(response);
         }
@@ -598,7 +954,7 @@ export const AIGenerateDialog: React.FC = () => {
       for (const template of apiPathTemplates) {
         const apiUrl = template.replace('{baseUrl}', baseUrl).replace('{model}', promptModel);
         try {
-          console.log(`尝试提示词优化API路径: ${apiUrl}`);
+          console.log(`尝试Gemini提示词优化API路径: ${apiUrl}`);
           
           const response = await fetch(apiUrl, {
             method: 'POST',
@@ -606,7 +962,7 @@ export const AIGenerateDialog: React.FC = () => {
             body: requestBody
           });
           
-          console.log(`提示词优化API路径 ${apiUrl} 返回状态: ${response.status}`);
+          console.log(`Gemini提示词优化API路径 ${apiUrl} 返回状态: ${response.status}`);
           
           // 如果不是404，说明路径存在，缓存模板并继续处理响应
           if (response.status !== 404) {
@@ -615,18 +971,19 @@ export const AIGenerateDialog: React.FC = () => {
           }
           
         } catch (error) {
-          console.log(`提示词优化API路径 ${apiUrl} 请求失败:`, error);
+          console.log(`Gemini提示词优化API路径 ${apiUrl} 请求失败:`, error);
           lastError = error instanceof Error ? error : new Error(String(error));
         }
       }
       
       // 如果所有路径都失败，抛出最后一个错误
-      throw lastError || new Error('所有API路径都尝试失败');
+      throw lastError || new Error('所有Gemini API路径都尝试失败');
     } catch (error) {
-      console.error('Error optimizing prompt:', error);
+      console.error('Error optimizing prompt with Gemini:', error);
       throw error;
     }
   };
+
   
   // 处理提示词优化API响应的公共逻辑
   function processPromptOptimizationResponse(response: Response): Promise<string> {
@@ -695,11 +1052,24 @@ export const AIGenerateDialog: React.FC = () => {
     setError(null);
 
     try {
+      // 确保使用用户选择的模型
+      const promptModel = settings.promptOptimizationModel || (
+        settings.baseUrl?.includes('openrouter.ai') 
+          ? 'google/gemini-2.5-flash'
+          : 'gemini-2.5-flash'
+      );
+      
+      console.log('AI生成对话框: 使用的提示词优化模型', { 
+        promptModel, 
+        isOpenRouter: settings.baseUrl?.includes('openrouter.ai'),
+        baseUrl: settings.baseUrl 
+      });
+      
       const optimizedPrompt = await optimizePromptWithGemini(
         prompt,
         settings.geminiApiKey,
         settings.baseUrl || 'https://generativelanguage.googleapis.com/v1beta',
-        settings.promptOptimizationModel || 'gemini-2.5-flash',
+        promptModel,
         selectedImages
       );
       
@@ -745,6 +1115,78 @@ export const AIGenerateDialog: React.FC = () => {
           )}
           
           <div className="prompt-input-container">
+            <div className="language-selection-container">
+              <label className="language-selection-label">优化语言:</label>
+              <div className="language-selection-buttons">
+                <button
+                  className={`language-btn ${selectedLanguage === 'english' ? 'active' : ''}`}
+                  onClick={() => setSelectedLanguage('english')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                >
+                  English
+                </button>
+                <button
+                  className={`language-btn ${selectedLanguage === 'chinese' ? 'active' : ''}`}
+                  onClick={() => setSelectedLanguage('chinese')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                >
+                  中文
+                </button>
+                <button
+                  className={`language-btn ${selectedLanguage === 'auto' ? 'active' : ''}`}
+                  onClick={() => setSelectedLanguage('auto')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                >
+                  自动检测
+                </button>
+              </div>
+            </div>
+            <div className="aspect-ratio-selection-container">
+              <label className="aspect-ratio-selection-label">生成尺寸:</label>
+              <div className="aspect-ratio-selection-buttons">
+                <button
+                  className={`aspect-ratio-btn ${aspectRatioMode === 'original' ? 'active' : ''}`}
+                  onClick={() => setAspectRatioMode('original')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                  title="保持原图尺寸"
+                >
+                  原图尺寸
+                </button>
+                <button
+                  className={`aspect-ratio-btn ${aspectRatioMode === 'square' ? 'active' : ''}`}
+                  onClick={() => setAspectRatioMode('square')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                  title="正方形，适合头像、单个物体"
+                >
+                  正方形
+                </button>
+                <button
+                  className={`aspect-ratio-btn ${aspectRatioMode === 'landscape' ? 'active' : ''}`}
+                  onClick={() => setAspectRatioMode('landscape')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                  title="横向比例 16:9，适合9宫格、拼图等"
+                >
+                  横向 16:9
+                </button>
+                <button
+                  className={`aspect-ratio-btn ${aspectRatioMode === 'portrait' ? 'active' : ''}`}
+                  onClick={() => setAspectRatioMode('portrait')}
+                  disabled={isGenerating || isOptimizingPrompt}
+                  title="竖向比例 9:16，适合手机屏幕"
+                >
+                  竖向 9:16
+                </button>
+              </div>
+            </div>
+            {/* 智能提示 */}
+            {selectedImages.length > 0 && aspectRatioMode === 'original' && (
+              <div className="smart-suggestion">
+                <div className="suggestion-icon">💡</div>
+                <div className="suggestion-text">
+                  提示：您选中的是竖向图片，如果要生成复杂布局（如9宫格、拼图），建议选择“<strong>横向 16:9</strong>”获得更好的效果。
+                </div>
+              </div>
+            )}
             <div className="prompt-input-wrapper">
               <textarea
                 className="prompt-input"

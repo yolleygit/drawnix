@@ -32,7 +32,71 @@ export const SettingsDialog: React.FC = () => {
     const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (savedSettings) {
       try {
-        setSettings(JSON.parse(savedSettings));
+        const parsedSettings = JSON.parse(savedSettings);
+        
+        // 检查是否需要迁移模型名称格式
+        const isOpenRouter = parsedSettings.baseUrl?.includes('openrouter.ai');
+        let needsUpdate = false;
+        
+        if (isOpenRouter) {
+          // 如果使用 OpenRouter 但模型名称是原生格式，则转换为 OpenRouter 格式
+          if (parsedSettings.imageGenerationModel && !parsedSettings.imageGenerationModel.startsWith('google/')) {
+            // 转换生图模型
+            if (parsedSettings.imageGenerationModel === 'gemini-2.5-flash-image-preview') {
+              parsedSettings.imageGenerationModel = 'google/gemini-2.5-flash-image-preview';
+              needsUpdate = true;
+            } else if (parsedSettings.imageGenerationModel === 'gemini-2.5-pro-image-preview') {
+              parsedSettings.imageGenerationModel = 'google/gemini-2.5-pro-image-preview';
+              needsUpdate = true;
+            }
+          }
+          
+          if (parsedSettings.promptOptimizationModel && !parsedSettings.promptOptimizationModel.startsWith('google/')) {
+            // 转换提示词优化模型
+            if (parsedSettings.promptOptimizationModel === 'gemini-2.5-flash') {
+              parsedSettings.promptOptimizationModel = 'google/gemini-2.5-flash';
+              needsUpdate = true;
+            } else if (parsedSettings.promptOptimizationModel === 'gemini-2.5-pro') {
+              parsedSettings.promptOptimizationModel = 'google/gemini-2.5-pro';
+              needsUpdate = true;
+            }
+          }
+        } else {
+          // 如果不使用 OpenRouter 但模型名称是 OpenRouter 格式，则转换为原生格式
+          if (parsedSettings.imageGenerationModel?.startsWith('google/')) {
+            if (parsedSettings.imageGenerationModel === 'google/gemini-2.5-flash-image-preview') {
+              parsedSettings.imageGenerationModel = 'gemini-2.5-flash-image-preview';
+              needsUpdate = true;
+            } else if (parsedSettings.imageGenerationModel === 'google/gemini-2.5-pro-image-preview') {
+              parsedSettings.imageGenerationModel = 'gemini-2.5-pro-image-preview';
+              needsUpdate = true;
+            }
+          }
+          
+          if (parsedSettings.promptOptimizationModel?.startsWith('google/')) {
+            if (parsedSettings.promptOptimizationModel === 'google/gemini-2.5-flash') {
+              parsedSettings.promptOptimizationModel = 'gemini-2.5-flash';
+              needsUpdate = true;
+            } else if (parsedSettings.promptOptimizationModel === 'google/gemini-2.5-pro') {
+              parsedSettings.promptOptimizationModel = 'gemini-2.5-pro';
+              needsUpdate = true;
+            }
+          }
+        }
+        
+        setSettings(parsedSettings);
+        
+        // 如果需要更新，立即保存迁移后的设置
+        if (needsUpdate) {
+          console.log('设置对话框: 检测到模型名称格式不匹配，自动迁移', {
+            isOpenRouter,
+            oldImageModel: JSON.parse(savedSettings).imageGenerationModel,
+            newImageModel: parsedSettings.imageGenerationModel,
+            oldPromptModel: JSON.parse(savedSettings).promptOptimizationModel,
+            newPromptModel: parsedSettings.promptOptimizationModel
+          });
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(parsedSettings));
+        }
       } catch (e) {
         console.error('Failed to parse settings:', e);
       }
@@ -60,6 +124,7 @@ export const SettingsDialog: React.FC = () => {
   const checkModelAvailability = async (apiKey: string, baseUrl: string, modelName: string): Promise<boolean> => {
     // 根据baseUrl判断使用哪种API密钥传递方式和路径格式
     const isOfficialApi = baseUrl.includes('googleapis.com');
+    const isOpenRouter = baseUrl.includes('openrouter.ai');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
@@ -68,8 +133,79 @@ export const SettingsDialog: React.FC = () => {
       // Google官方API使用x-goog-api-key
       headers['x-goog-api-key'] = apiKey;
     } else {
-      // 第三方代理可能使用Authorization Bearer或其他方式
+      // 第三方代理（包括OpenRouter）使用Authorization Bearer
       headers['Authorization'] = `Bearer ${apiKey}`;
+      if (isOpenRouter) {
+        headers['HTTP-Referer'] = window.location.origin;
+        headers['X-Title'] = 'Drawnix';
+      }
+    }
+    
+    // 根据模型类型创建不同的测试请求体
+    const isImageModel = modelName.includes('image-preview') || modelName.includes('dall-e') || modelName.includes('midjourney');
+    
+    let requestBody;
+    if (isOpenRouter) {
+      // OpenRouter 使用 OpenAI 兼容格式
+      requestBody = JSON.stringify({
+        model: modelName,
+        messages: [{
+          role: "user",
+          content: isImageModel 
+            ? "Generate a simple test image: a small red circle on white background"
+            : "Hello, this is a test message to verify model availability. Please respond with OK."
+        }],
+        max_tokens: isImageModel ? 50 : 10,
+        temperature: 0.1
+      });
+    } else {
+      // Gemini 格式（兼容原有格式）
+      requestBody = isImageModel 
+        ? JSON.stringify({
+            // 图像生成模型的测试请求格式（参考 doc/gemini-api.md）
+            contents: [{
+              role: "user",
+              parts: [{
+                text: "Create a simple test image: a red circle on white background"
+              }]
+            }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+              maxOutputTokens: 1024,
+              temperature: 0.1
+            },
+            safetySettings: [
+              {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_NONE"
+              },
+              {
+                category: "HARM_CATEGORY_HATE_SPEECH", 
+                threshold: "BLOCK_NONE"
+              },
+              {
+                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold: "BLOCK_NONE"
+              },
+              {
+                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold: "BLOCK_NONE"
+              }
+            ]
+          })
+        : JSON.stringify({
+            // 文本模型的测试请求格式
+            contents: [{
+              role: "user",
+              parts: [{
+                text: 'Hello, this is a test message to verify model availability. Please respond with OK.'
+              }]
+            }],
+            generationConfig: {
+              maxOutputTokens: 10,
+              temperature: 0.1
+            }
+          });
     }
     
     // 优先使用缓存模板
@@ -77,6 +213,7 @@ export const SettingsDialog: React.FC = () => {
     if (cachedTemplate) {
       const url = cachedTemplate.replace('{baseUrl}', baseUrl).replace('{model}', modelName);
       try {
+        console.log(`设置对话框: 使用缓存模板: ${url}`);
         const response = await fetch(url, { method: 'POST', headers, body: requestBody });
         if (response.status !== 404) {
           return await processApiResponse(response);
@@ -88,27 +225,31 @@ export const SettingsDialog: React.FC = () => {
     }
 
     // 尝试不同的API路径格式（自动探测并缓存）
-    const apiPathTemplates = [
-      '{baseUrl}/models/{model}:generateContent', // Google官方格式
-      '{baseUrl}/v1beta/models/{model}:generateContent', // Cloudflare Worker 示例格式（v1beta）
-      '{baseUrl}/v1/models/{model}:generateContent', // v1前缀
-      '{baseUrl}/{model}:generateContent', // 去掉models前缀
-      '{baseUrl}/api/generate', // 通用generate端点
-    ];
-    
-    const requestBody = JSON.stringify({
-      contents: [{
-        parts: [{
-          text: 'test' // 简单的测试请求
-        }]
-      }]
-    });
+    let apiPathTemplates;
+    if (isOpenRouter) {
+      // OpenRouter 使用正确的 API 端点
+      apiPathTemplates = [
+        '{baseUrl}/api/v1/chat/completions', // OpenRouter 正确路径
+      ];
+    } else {
+      // Gemini 和其他代理服务的多种路径格式（保持向后兼容）
+      apiPathTemplates = [
+        '{baseUrl}/v1beta/models/{model}:generateContent', // cf-gemini-proxy标准格式
+        '{baseUrl}/models/{model}:generateContent', // Google官方格式
+        '{baseUrl}/v1/models/{model}:generateContent', // v1前缀
+        '{baseUrl}/{model}:generateContent', // 去掉models前缀
+        '{baseUrl}/api/generate', // 通用generate端点
+      ];
+    }
     
     // 依次尝试不同的API路径
     for (const template of apiPathTemplates) {
-      const apiUrl = template.replace('{baseUrl}', baseUrl).replace('{model}', modelName);
+      const apiUrl = isOpenRouter 
+        ? template.replace('{baseUrl}', baseUrl)
+        : template.replace('{baseUrl}', baseUrl).replace('{model}', modelName);
+      
       try {
-        console.log(`尝试API路径: ${apiUrl}`);
+        console.log(`设置对话框: 尝试API路径: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -116,7 +257,7 @@ export const SettingsDialog: React.FC = () => {
           body: requestBody
         });
         
-        console.log(`API路径 ${apiUrl} 返回状态: ${response.status}`);
+        console.log(`设置对话框: API路径 ${apiUrl} 返回状态: ${response.status}`);
         
         // 如果不是404，说明路径存在，缓存模板并继续处理响应
         if (response.status !== 404) {
@@ -125,7 +266,7 @@ export const SettingsDialog: React.FC = () => {
         }
         
       } catch (error) {
-        console.log(`API路径 ${apiUrl} 请求失败:`, error);
+        console.log(`设置对话框: API路径 ${apiUrl} 请求失败:`, error);
         // 继续尝试下一个路径
       }
     }
@@ -137,52 +278,60 @@ export const SettingsDialog: React.FC = () => {
   // 处理API响应的公共逻辑
   function processApiResponse(response: Response): Promise<boolean> {
     return (async () => {
-      // 检查响应内容来判断具体错误
+      // 只有200状态码才认为模型真正可用
       if (response.status === 200) {
-        return true; // 请求成功
+        console.log('检测成功: 模型响应正常');
+        return true;
       }
       
-      // 对于非200状态码，检查错误详情
+      // 对于非200状态码，解析具体错误原因
       let errorData;
       try {
         errorData = await response.json();
       } catch {
-        // 无法解析响应体，根据状态码判断
-        return response.status !== 401 && response.status !== 403 && response.status !== 404;
+        // 无法解析响应体，根据状态码给出通用错误信息
+        console.log(`检测失败: HTTP ${response.status} - ${response.statusText}`);
+        return false;
       }
       
-      // 分析错误信息
+      // 分析错误信息并给出具体原因
       const errorMessage = errorData.error?.message || '';
       
       if (response.status === 400) {
-        // 400错误需要具体分析
         if (errorMessage.includes('API key not valid') || 
             errorMessage.includes('invalid API key') ||
             errorMessage.includes('Invalid API key')) {
           console.log('检测失败: API Key无效');
-          return false;
-        }
-        if (errorMessage.includes('model') && errorMessage.includes('not found')) {
+        } else if (errorMessage.includes('model') && errorMessage.includes('not found')) {
           console.log('检测失败: 模型不存在');
-          return false;
+        } else {
+          console.log('检测失败: 请求参数错误或模型不支持此请求格式');
         }
-        // 其他400错误（如参数格式问题）可能表示模型存在但请求格式有问题
-        console.log('检测通过: 模型存在但请求参数有问题（预期行为）');
-        return true;
+        return false;
       }
       
-      if (response.status === 401 || response.status === 403) {
-        console.log('检测失败: 认证失败');
+      if (response.status === 401) {
+        console.log('检测失败: 认证失败，请检查 API Key 或 PROXY_KEY');
+        return false;
+      }
+      
+      if (response.status === 403) {
+        console.log('检测失败: 权限不足，请检查 API Key 权限');
         return false;
       }
       
       if (response.status === 404) {
-        console.log('检测失败: 模型不存在');
+        console.log('检测失败: API 端点或模型不存在');
+        return false;
+      }
+      
+      if (response.status === 500) {
+        console.log('检测失败: 服务器内部错误，可能是代理配置或 API Key 问题');
         return false;
       }
       
       // 其他错误状态码
-      console.log('检测失败: 未知错误', response.status, errorMessage);
+      console.log(`检测失败: HTTP ${response.status} - ${errorMessage || response.statusText}`);
       return false;
     })().catch(error => {
       console.error('Model availability check failed:', error);
@@ -208,7 +357,7 @@ export const SettingsDialog: React.FC = () => {
       ? (settings.imageGenerationModel || 'gemini-2.5-flash-image-preview')
       : (settings.promptOptimizationModel || 'gemini-2.5-flash');
 
-    // 设置当前模型为检测中
+    // 设置当前模型为棆测中
     setModelStatus(prev => ({
       ...prev,
       [modelType === 'image' ? 'imageModel' : 'promptModel']: 'checking'
@@ -216,16 +365,27 @@ export const SettingsDialog: React.FC = () => {
 
     try {
       const isAvailable = await checkModelAvailability(settings.geminiApiKey, baseUrl, modelName);
+      
       setModelStatus(prev => ({
         ...prev,
         [modelType === 'image' ? 'imageModel' : 'promptModel']: isAvailable ? 'available' : 'error'
       }));
+      
+      // 给用户反馈
+      if (isAvailable) {
+        console.log(`✅ 模型 ${modelName} 检测成功！模型正常响应。`);
+      } else {
+        console.warn(`❌ 模型 ${modelName} 检测失败。\n请检查以下项目：\n1. API Key 是否正确且有效\n2. Base URL 是否正确\n3. 网络连接是否正常\n4. 代理服务器配置是否正确\n5. 模型名称是否支持`);
+      }
     } catch (error) {
       console.error(`${modelType} model check failed:`, error);
       setModelStatus(prev => ({
         ...prev,
         [modelType === 'image' ? 'imageModel' : 'promptModel']: 'error'
       }));
+      
+      // 提供更友好的错误信息
+      console.error(`模型 ${modelName} 检测遇到错误：${error}\n请检查网络连接和 API 配置`);
     }
   };
 
@@ -253,7 +413,31 @@ export const SettingsDialog: React.FC = () => {
   };
 
   const handleBaseUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings({ ...settings, baseUrl: e.target.value });
+    const newBaseUrl = e.target.value;
+    const isOpenRouter = newBaseUrl.includes('openrouter.ai');
+    
+    // 当切换到 OpenRouter 时，自动设置默认的 Gemini 模型
+    let updatedSettings = { ...settings, baseUrl: newBaseUrl };
+    
+    if (isOpenRouter) {
+      // 使用 OpenRouter 格式的 Gemini 模型名称
+      if (!settings.imageGenerationModel?.startsWith('google/')) {
+        updatedSettings.imageGenerationModel = 'google/gemini-2.5-flash-image-preview';
+      }
+      if (!settings.promptOptimizationModel?.startsWith('google/')) {
+        updatedSettings.promptOptimizationModel = 'google/gemini-2.5-flash';
+      }
+    } else {
+      // 使用原生 Gemini 模型名称
+      if (settings.imageGenerationModel?.startsWith('google/')) {
+        updatedSettings.imageGenerationModel = 'gemini-2.5-flash-image-preview';
+      }
+      if (settings.promptOptimizationModel?.startsWith('google/')) {
+        updatedSettings.promptOptimizationModel = 'gemini-2.5-flash';
+      }
+    }
+    
+    setSettings(updatedSettings);
   };
 
   const handleImageModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -317,12 +501,26 @@ export const SettingsDialog: React.FC = () => {
               <div className="model-input-container">
                 <select
                   id="image-model"
-                  value={settings.imageGenerationModel || 'gemini-2.5-flash-image-preview'}
+                  value={settings.imageGenerationModel || (settings.baseUrl?.includes('openrouter.ai') ? 'google/gemini-2.5-flash-image-preview' : 'gemini-2.5-flash-image-preview')}
                   onChange={handleImageModelChange}
                   className="form-select"
                 >
-                  <option value="gemini-2.5-flash-image-preview">gemini-2.5-flash-image-preview（默认）</option>
-                  <option value="gemini-2.5-pro-image-preview">gemini-2.5-pro-image-preview</option>
+                  {settings.baseUrl?.includes('openrouter.ai') ? (
+                    // OpenRouter模型选项（支持Gemini模型）
+                    <>
+                      <option value="google/gemini-2.5-flash-image-preview">Gemini 2.5 Flash Image Preview（推荐生图）</option>
+                      <option value="google/gemini-2.5-pro-image-preview">Gemini 2.5 Pro Image Preview</option>
+                      <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet（仅文本）</option>
+                      <option value="openai/gpt-4o">GPT-4o（仅文本）</option>
+                      <option value="openai/gpt-4-turbo">GPT-4 Turbo（仅文本）</option>
+                    </>
+                  ) : (
+                    // Gemini模型选项
+                    <>
+                      <option value="gemini-2.5-flash-image-preview">gemini-2.5-flash-image-preview（默认）</option>
+                      <option value="gemini-2.5-pro-image-preview">gemini-2.5-pro-image-preview</option>
+                    </>
+                  )}
                 </select>
                 <button 
                   className="test-model-btn"
@@ -343,7 +541,10 @@ export const SettingsDialog: React.FC = () => {
                 )}
               </div>
               <div className="form-help">
-                选择用于图像生成的 AI 模型
+                {settings.baseUrl?.includes('openrouter.ai') 
+                  ? '选择用于图像生成的 OpenRouter 模型（推荐使用 Gemini 2.5 系列支持图像生成）'
+                  : '选择用于图像生成的 AI 模型'
+                }
               </div>
             </div>
             
@@ -352,12 +553,28 @@ export const SettingsDialog: React.FC = () => {
               <div className="model-input-container">
                 <select
                   id="prompt-model"
-                  value={settings.promptOptimizationModel || 'gemini-2.5-flash'}
+                  value={settings.promptOptimizationModel || (settings.baseUrl?.includes('openrouter.ai') ? 'google/gemini-2.5-flash' : 'gemini-2.5-flash')}
                   onChange={handlePromptModelChange}
                   className="form-select"
                 >
-                  <option value="gemini-2.5-flash">gemini-2.5-flash（默认）</option>
-                  <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                  {settings.baseUrl?.includes('openrouter.ai') ? (
+                    // OpenRouter模型选项（支持Gemini模型）
+                    <>
+                      <option value="google/gemini-2.5-flash">Gemini 2.5 Flash（推荐）</option>
+                      <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+                      <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                      <option value="openai/gpt-4o">GPT-4o</option>
+                      <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                      <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                    </>
+                  ) : (
+                    // Gemini模型选项
+                    <>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash（默认）</option>
+                      <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                    </>
+                  )}
                 </select>
                 <button 
                   className="test-model-btn"
@@ -378,7 +595,10 @@ export const SettingsDialog: React.FC = () => {
                 )}
               </div>
               <div className="form-help">
-                选择用于提示词优化的 AI 模型
+                {settings.baseUrl?.includes('openrouter.ai') 
+                  ? '选择用于提示词优化的 OpenRouter 模型'
+                  : '选择用于提示词优化的 AI 模型'
+                }
               </div>
             </div>
           </div>

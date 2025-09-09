@@ -112,12 +112,24 @@ export class AIGenerationWorker {
         updatePlaceholderProgress(this.board, task.id, 0.6, '发送生成请求...');
       }
       
-      // 调用生成API
+      // 调用生成API，确保使用用户选择的模型
+      const imageModel = settings.imageGenerationModel || (
+        settings.baseUrl?.includes('openrouter.ai') 
+          ? 'google/gemini-2.5-flash-image-preview'
+          : 'gemini-2.5-flash-image-preview'
+      );
+      
+      console.log('Worker: 使用的生图模型', { 
+        imageModel, 
+        isOpenRouter: settings.baseUrl?.includes('openrouter.ai'),
+        baseUrl: settings.baseUrl 
+      });
+      
       const generatedImageUrl = await this.generateImageWithGemini(
         task.prompt,
         settings.geminiApiKey,
         settings.baseUrl || 'https://generativelanguage.googleapis.com/v1beta',
-        settings.imageGenerationModel || 'gemini-2.5-flash-image-preview',
+        imageModel,
         task.selectedImages
       );
       
@@ -150,7 +162,7 @@ export class AIGenerationWorker {
           await new Promise(resolve => setTimeout(resolve, 100));
           
           console.log('Worker: 即将替换占位符，停止进度更新');
-          const newImageId = replacePlaceholderWithImage(
+          const newImageId = await replacePlaceholderWithImage(
             this.board,
             task.id,
             generatedImageUrl
@@ -228,7 +240,7 @@ export class AIGenerationWorker {
   }
 
   /**
-   * 异步调用Gemini API生成图像
+   * 异步调用AI API生成图像
    */
   private async generateImageWithGemini(
     prompt: string,
@@ -240,6 +252,160 @@ export class AIGenerationWorker {
     try {
       console.log('Worker: generateImageWithGemini 开始', { prompt, baseUrl, selectedImagesCount: selectedImages.length });
       
+      // 检测API类型：OpenRouter vs Gemini
+      const isOpenRouter = baseUrl.includes('openrouter.ai');
+      const isOfficialGemini = baseUrl.includes('googleapis.com');
+      
+      if (isOpenRouter) {
+        return await this.generateImageWithOpenRouter(prompt, apiKey, baseUrl, imageModel, selectedImages);
+      } else {
+        return await this.generateImageWithGeminiAPI(prompt, apiKey, baseUrl, imageModel, selectedImages);
+      }
+    } catch (error) {
+      console.error('Worker: Error generating image:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * OpenRouter API调用
+   */
+  private async generateImageWithOpenRouter(
+    prompt: string,
+    apiKey: string,
+    baseUrl: string,
+    imageModel: string,
+    selectedImages: AIGenerationTask['selectedImages'] = []
+  ): Promise<string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://drawnix.com',
+      'X-Title': 'Drawnix'
+    };
+    
+    // 构建OpenAI格式的messages
+    const messages: any[] = [];
+    
+    if (selectedImages.length > 0) {
+      // 有图像时，构建多模态消息
+      const content: any[] = [];
+      
+      // 添加图像
+      selectedImages.forEach(imageData => {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: `data:${imageData.mimeType};base64,${imageData.base64}`
+          }
+        });
+      });
+      
+      // 添加文本提示
+      const imageGenerationPrompt = `Transform the provided images based on this description: ${prompt}. Create a new photorealistic, high-quality image.`;
+      content.push({
+        type: 'text',
+        text: imageGenerationPrompt
+      });
+      
+      messages.push({
+        role: 'user',
+        content: content
+      });
+    } else {
+      // 纯文本生图
+      const imageGenerationPrompt = `Create a photorealistic, high-quality image: ${prompt}.`;
+      messages.push({
+        role: 'user',
+        content: imageGenerationPrompt
+      });
+    }
+    
+    const requestBody = JSON.stringify({
+      model: imageModel,
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+    
+    // OpenRouter 正确的 API 端点
+    const apiUrl = `${baseUrl}/api/v1/chat/completions`;
+    console.log(`Worker: OpenRouter API调用: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: requestBody
+    });
+    
+    console.log(`Worker: OpenRouter API返回状态: ${response.status}`);
+    
+    if (!response.ok) {
+      let errorMessage;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(`Worker: OpenRouter API错误: ${errorMessage}`);
+    }
+    
+    const data = await response.json();
+    console.log('Worker: OpenRouter API Response:', JSON.stringify(data, null, 2));
+    
+    // 处理OpenRouter响应
+    if (data.choices && data.choices.length > 0) {
+      const choice = data.choices[0];
+      if (choice.message) {
+        // 检查是否有图像数据
+        if (choice.message.images && choice.message.images.length > 0) {
+          const imageData = choice.message.images[0];
+          if (imageData.image_url && imageData.image_url.url) {
+            console.log('Worker: OpenRouter返回图像URL格式');
+            return imageData.image_url.url;
+          }
+        }
+        
+        // 检查文本内容中是否包含图像URL或base64
+        if (choice.message.content) {
+          const content = choice.message.content;
+          
+          // 检查是否包含图像URL
+          const imageUrlMatch = content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i);
+          if (imageUrlMatch) {
+            console.log('Worker: OpenRouter返回图像URL');
+            return imageUrlMatch[0];
+          }
+          
+          // 检查是否是base64格式
+          const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+\/=]+)/);  
+          if (base64Match) {
+            console.log('Worker: OpenRouter返回base64图像');
+            return base64Match[0];
+          }
+          
+          // 如果没有找到图像，说明可能是纯文本响应
+          console.log('Worker: OpenRouter返回纯文本响应，可能不支持图像生成:', content.substring(0, 100));
+          throw new Error(`Worker: 所选模型不支持图像生成，仅返回文本描述。请在设置中选择支持图像生成的模型。`);
+        }
+      }
+    }
+    
+    throw new Error('Worker: OpenRouter API返回了意外的响应格式');
+  }
+  
+  /**
+   * Gemini API调用（原有逻辑）
+   */
+  private async generateImageWithGeminiAPI(
+    prompt: string,
+    apiKey: string,
+    baseUrl: string,
+    imageModel: string,
+    selectedImages: AIGenerationTask['selectedImages'] = []
+  ): Promise<string> {
+    try {
       // 构建请求内容
       const parts: any[] = [];
       
@@ -276,10 +442,37 @@ export class AIGenerationWorker {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
       
+      // 根据 doc/gemini-api.md 修正图像生成的请求格式
       const requestBody = JSON.stringify({
         contents: [{
+          role: "user",
           parts: parts
-        }]
+        }],
+        generationConfig: {
+          // 图像生成模型的特殊配置
+          responseModalities: ["IMAGE", "TEXT"],
+          maxOutputTokens: 8192,
+          temperature: 0.4,
+          topP: 0.95
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH", 
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_NONE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_NONE"
+          }
+        ]
       });
       
       // 如果已有缓存的可用路径模板，优先只用该模板
@@ -334,7 +527,7 @@ export class AIGenerationWorker {
       // 如果所有路径都失败，抛出最后一个错误
       throw lastError || new Error('所有API路径都尝试失败');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating image:', error);
       throw error;
     }
