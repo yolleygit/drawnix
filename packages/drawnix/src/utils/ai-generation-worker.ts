@@ -213,9 +213,36 @@ export class AIGenerationWorker {
 
     } catch (error) {
       console.error('AI Generation failed:', error);
-      onStatusUpdate(task.id, 'error', { 
-        error: error instanceof Error ? error.message : '生成图像失败'
-      });
+      
+      // 检查是否为 PROHIBITED_CONTENT 错误
+      const errorMessage = error instanceof Error ? error.message : '生成图像失败';
+      
+      if (errorMessage.includes('PROHIBITED_CONTENT:')) {
+        // 对于 PROHIBITED_CONTENT 错误，显示特殊的错误占位符
+        onStatusUpdate(task.id, 'error', { 
+          error: '内容被模型拒绝生成'
+        });
+        
+        // 在画布上显示友好的错误提示
+        if (this.board) {
+          try {
+            const { showProhibitedContentPlaceholder } = await import('./ai-generation-placeholder');
+            await showProhibitedContentPlaceholder(
+              this.board,
+              task.id,
+              task.prompt || '生成请求'
+            );
+            console.log('Worker: 已显示 PROHIBITED_CONTENT 错误占位符');
+          } catch (placeholderError) {
+            console.error('Worker: 显示错误占位符失败', placeholderError);
+          }
+        }
+      } else {
+        // 其他错误的常规处理
+        onStatusUpdate(task.id, 'error', { 
+          error: errorMessage
+        });
+      }
     } finally {
       this.processingQueue.delete(task.id);
     }
@@ -588,7 +615,11 @@ export class AIGenerationWorker {
       const candidate = data.candidates[0];
       
       if (candidate.finishReason === 'SAFETY') {
-        throw new Error('图像生成被安全过滤器阻止，请尝试其他描述');
+        throw new Error('SAFETY_BLOCKED:图像生成被安全过滤器阻止，请尝试其他描述');
+      }
+      
+      if (candidate.finishReason === 'PROHIBITED_CONTENT') {
+        throw new Error('PROHIBITED_CONTENT:内容被模型拒绝生成，可能包含不当内容。请修改提示词后重试。');
       }
       
       if (candidate.content && candidate.content.parts) {

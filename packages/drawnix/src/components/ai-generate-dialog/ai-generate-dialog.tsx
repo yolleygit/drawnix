@@ -419,6 +419,10 @@ function processImageGenerationResponse(response: Response): Promise<string> {
       throw new Error('图像生成被安全过滤器阻止，请尝试其他描述');
     }
     
+    if (candidate.finishReason === 'PROHIBITED_CONTENT') {
+      throw new Error('PROHIBITED_CONTENT:内容被模型拒绝生成，可能包含不当内容。请修改提示词后重试。');
+    }
+    
     if (candidate.content && candidate.content.parts) {
       for (const part of candidate.content.parts) {
         // 检查 inlineData 字段（根据文档，这是正确的格式）
@@ -1006,6 +1010,10 @@ export const AIGenerateDialog: React.FC = () => {
       
       if (candidate.finishReason === 'SAFETY') {
         throw new Error('提示词优化被安全过滤器阻止');
+      }
+      
+      if (candidate.finishReason === 'PROHIBITED_CONTENT') {
+        throw new Error('提示词优化被模型拒绝，请修改提示词后重试');
       }
       
       if (candidate.content && candidate.content.parts) {

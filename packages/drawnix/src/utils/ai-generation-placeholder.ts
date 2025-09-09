@@ -954,3 +954,176 @@ export const clearAllPlaceholders = (board: PlaitBoard): number => {
   
   return placeholdersToRemove.length;
 };
+
+/**
+ * 生成 PROHIBITED_CONTENT 错误占位符SVG图像
+ * @param prompt 原始提示词
+ * @param width SVG宽度
+ * @param height SVG高度
+ * @returns SVG的data URL
+ */
+export const generateProhibitedContentSVG = (
+  prompt: string,
+  width: number = 200,
+  height: number = 200
+): string => {
+  // 准备显示的文本
+  const displayPrompt = prompt && prompt.length > 40 ? 
+    prompt.substring(0, 37) + '...' : (prompt || '生成请求');
+  
+  // 创建错误提示占位符SVG
+  const errorSvg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- 警告渐变背景 -->
+        <linearGradient id="warningGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#fef7ed;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#fed7aa;stop-opacity:1" />
+        </linearGradient>
+        
+        <!-- 图标渐变 -->
+        <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      
+      <!-- 背景边框 -->
+      <rect width="100%" height="100%" fill="url(#warningGradient)" stroke="#f59e0b" stroke-width="2" 
+            stroke-dasharray="8,4" rx="12" ry="12">
+        <animate attributeName="stroke-dashoffset" values="0;12" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      
+      <!-- 中心内容区域 -->
+      <g transform="translate(${width/2}, ${height/2})">
+        
+        <!-- 警告图标 -->
+        <g transform="translate(0, ${-height/4})">
+          <circle cx="0" cy="0" r="22" fill="url(#iconGradient)" opacity="0.2">
+            <animate attributeName="opacity" values="0.2;0.4;0.2" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <!-- 感叹号 -->
+          <rect x="-2" y="-12" width="4" height="16" fill="#f59e0b" rx="2"/>
+          <circle cx="0" cy="8" r="3" fill="#f59e0b"/>
+        </g>
+        
+        <!-- 主要错误信息 -->
+        <text x="0" y="${-height/8}" text-anchor="middle" fill="#dc2626" 
+              font-family="Arial, sans-serif" font-size="${Math.min(14, width/18)}" 
+              font-weight="bold">内容被模型拒绝</text>
+        
+        <!-- 原始提示词 -->
+        <text x="0" y="0" text-anchor="middle" fill="#6b7280" 
+              font-family="Arial, sans-serif" font-size="${Math.min(11, width/22)}" 
+              font-weight="normal">"${displayPrompt}"</text>
+        
+        <!-- 解决建议 -->
+        <text x="0" y="${height/8}" text-anchor="middle" fill="#374151" 
+              font-family="Arial, sans-serif" font-size="${Math.min(10, width/24)}" 
+              font-weight="normal">请修改提示词后重试</text>
+              
+        <!-- 技术说明 -->
+        <text x="0" y="${height/4}" text-anchor="middle" fill="#9ca3af" 
+              font-family="Arial, sans-serif" font-size="${Math.min(8, width/30)}" 
+              font-weight="normal">模型安全机制触发</text>
+        
+      </g>
+    </svg>
+  `;
+
+  // 将SVG转换为data URL
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(errorSvg)))}`;
+};
+
+/**
+ * 显示 PROHIBITED_CONTENT 错误的友好占位符
+ * @param board 画板实例
+ * @param taskId 任务ID
+ * @param originalPrompt 原始提示词
+ * @returns 错误占位符图像元素
+ */
+export const showProhibitedContentPlaceholder = async (
+  board: PlaitBoard,
+  taskId: string,
+  originalPrompt: string
+): Promise<PlaceholderImage | null> => {
+  console.log('ProhibitedContent: 开始显示错误占位符', { taskId, originalPrompt });
+  
+  try {
+    // 查找并替换现有的占位符
+    const existingPlaceholders = findAllPlaceholdersByTaskId(board, taskId);
+    
+    let targetPoint: Point;
+    let placeholderWidth = 300;
+    let placeholderHeight = 200;
+    
+    if (existingPlaceholders.length > 0) {
+      // 使用现有占位符的位置和尺寸
+      const placeholder = existingPlaceholders[0];
+      targetPoint = placeholder.points[0];
+      placeholderWidth = placeholder.points[1][0] - placeholder.points[0][0];
+      placeholderHeight = placeholder.points[1][1] - placeholder.points[0][1];
+      
+      console.log('ProhibitedContent: 使用现有占位符位置', {
+        targetPoint,
+        width: placeholderWidth,
+        height: placeholderHeight
+      });
+      
+      // 删除所有现有占位符
+      for (const existingPlaceholder of existingPlaceholders) {
+        try {
+          CoreTransforms.removeElements(board, [existingPlaceholder]);
+          if (existingPlaceholder.id) {
+            PlaceholderRegistry.unregister(existingPlaceholder.id);
+          }
+        } catch (removeError) {
+          console.warn('ProhibitedContent: 删除现有占位符失败', existingPlaceholder.id, removeError);
+        }
+      }
+    } else {
+      // 使用默认位置
+      targetPoint = [300, 200];
+      console.log('ProhibitedContent: 使用默认位置', targetPoint);
+    }
+    
+    // 生成错误占位符SVG
+    const errorSvgUrl = generateProhibitedContentSVG(
+      originalPrompt,
+      placeholderWidth,
+      placeholderHeight
+    );
+    
+    // 创建错误占位符图像对象
+    const errorImageItem = {
+      url: errorSvgUrl,
+      width: placeholderWidth,
+      height: placeholderHeight
+    };
+    
+    // 插入错误占位符到画布
+    DrawTransforms.insertImage(board, errorImageItem, targetPoint);
+    
+    // 获取刚插入的元素
+    const elements = board.children;
+    const errorPlaceholderElement = elements[elements.length - 1] as any;
+    
+    // 在注册表中标记为特殊错误占位符
+    if (errorPlaceholderElement?.id) {
+      PlaceholderRegistry.register(errorPlaceholderElement.id, `error_${taskId}`);
+    }
+    
+    console.log('ProhibitedContent: 错误占位符创建成功', {
+      placeholderId: errorPlaceholderElement.id,
+      taskId,
+      position: targetPoint,
+      size: { width: placeholderWidth, height: placeholderHeight }
+    });
+    
+    return errorPlaceholderElement as PlaceholderImage;
+    
+  } catch (error) {
+    console.error('ProhibitedContent: 创建错误占位符失败', error);
+    return null;
+  }
+};
